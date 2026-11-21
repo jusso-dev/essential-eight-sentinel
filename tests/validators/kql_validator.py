@@ -24,6 +24,7 @@ TABULAR_OPERATORS: frozenset[str] = frozenset(
         "extend",
         "externaldata",
         "facet",
+        "filter",
         "find",
         "fork",
         "getschema",
@@ -320,8 +321,25 @@ def _split_top_level(tokens: list[Token], split_kind: str) -> list[list[Token]]:
     return segments
 
 
+ZERO_ARG_OPERATORS: frozenset[str] = frozenset(
+    {
+        "consume",
+        "count",
+        "getschema",
+        "serialize",
+    }
+)
+
+
 def _check_where_clause(stage: list[Token]) -> list[ValidationError]:
-    """Catch accidental single '=' equality checks inside top-level `where` predicates."""
+    """Validate predicate presence and catch accidental single '=' inside `where`/`filter`."""
+    if len(stage) < 2:
+        return [
+            ValidationError(
+                f"Operator {stage[0].value!r} requires a predicate expression",
+                stage[0].line,
+            )
+        ]
     errors: list[ValidationError] = []
     depth = 0
     for tok in stage[1:]:
@@ -374,7 +392,8 @@ def _validate_tabular_pipeline(expr_tokens: list[Token], defined_lets: set[str])
             errors.append(ValidationError("Empty pipe stage (trailing or consecutive '|')", prev_line))
             continue
         op_tok = stage[0]
-        if op_tok.kind != "IDENT" or op_tok.value.lower() not in TABULAR_OPERATORS:
+        op_lower = op_tok.value.lower()
+        if op_tok.kind != "IDENT" or op_lower not in TABULAR_OPERATORS:
             errors.append(
                 ValidationError(
                     f"Unknown or invalid KQL tabular operator after '|': {op_tok.value!r}",
@@ -382,7 +401,15 @@ def _validate_tabular_pipeline(expr_tokens: list[Token], defined_lets: set[str])
                 )
             )
             continue
-        if op_tok.value.lower() == "where":
+        if op_lower not in ZERO_ARG_OPERATORS and len(stage) < 2:
+            errors.append(
+                ValidationError(
+                    f"Operator {op_tok.value!r} requires at least one argument",
+                    op_tok.line,
+                )
+            )
+            continue
+        if op_lower in ("where", "filter"):
             errors.extend(_check_where_clause(stage))
 
     return errors
@@ -437,14 +464,30 @@ def validate_kql(query: str, *, is_workbook: bool = False) -> list[ValidationErr
                 errors.append(ValidationError(f"Expected '=' in 'let {var_tok.value}' statement", eq_tok.line))
                 continue
             defined_lets.add(var_tok.value)
-            # Check if RHS of let has pipes (tabular let binding)
+            # Check if RHS of let has pipes (tabular let binding) or wrapped materialize/toscalar
             rhs = stmt[3:]
-            if any(t.kind == "PIPE" for t in rhs):
-                # Strip optional view() / materialize() wrapper when checking pipeline
-                if rhs[0].kind == "IDENT" and rhs[0].value.lower() in ("materialize", "toscalar") and len(rhs) >= 3:
-                    pass
-                else:
-                    errors.extend(_validate_tabular_pipeline(rhs, defined_lets))
+            if (
+                rhs
+                and rhs[0].kind == "IDENT"
+                and rhs[0].value.lower() in ("materialize", "toscalar")
+                and len(rhs) >= 3
+                and rhs[1].kind == "PUNCT"
+                and rhs[1].value == "("
+                and rhs[-1].kind == "PUNCT"
+                and rhs[-1].value == ")"
+            ):
+                inner = rhs[2:-1]
+                if not inner:
+                    errors.append(
+                        ValidationError(
+                            f"{rhs[0].value}() requires an inner expression",
+                            rhs[0].line,
+                        )
+                    )
+                elif any(t.kind == "PIPE" for t in inner):
+                    errors.extend(_validate_tabular_pipeline(inner, defined_lets))
+            elif any(t.kind == "PIPE" for t in rhs):
+                errors.extend(_validate_tabular_pipeline(rhs, defined_lets))
             if idx == len(statements) - 1:
                 errors.append(
                     ValidationError(

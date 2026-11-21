@@ -34,9 +34,9 @@ EMOJI_RE = re.compile(
     "]"
 )
 
-# Detect explicit tenantId / subscriptionId literals that are not placeholder GUIDs.
+# Detect explicit tenantId / subscriptionId literals (YAML, JSON, KQL == / =~ / =).
 TENANT_OR_SUB_RE = re.compile(
-    r'(?:tenant[_-]?id|subscription[_-]?id)["\']?\s*[:=]\s*["\']?'
+    r'(?:tenant[_-]?id|subscription[_-]?id)["\']?\s*(?::|==|=~|=)\s*["\']?'
     r"([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})",
     re.IGNORECASE,
 )
@@ -97,10 +97,12 @@ def check_text(text: str, label: str = "<string>") -> list[str]:
                     f"{label}:{lineno}: non-placeholder tenant or subscription GUID {guid!r}"
                 )
 
-        endorsement_match = ENDORSEMENT_CLAIM_RE.search(line)
-        if endorsement_match:
-            prefix = line[max(0, endorsement_match.start() - 40) : endorsement_match.start()]
-            if not NEGATION_CONTEXT_RE.search(prefix):
+        for endorsement_match in ENDORSEMENT_CLAIM_RE.finditer(line):
+            before = line[: endorsement_match.start()]
+            # Restrict negation check to the current clause so a prior disclaimer does not mask a later claim
+            clause_parts = re.split(r"[.;,]|\b(?:but|however|yet)\b", before, flags=re.IGNORECASE)
+            clause_prefix = clause_parts[-1] if clause_parts else before
+            if not NEGATION_CONTEXT_RE.search(clause_prefix):
                 violations.append(
                     f"{label}:{lineno}: potential endorsement claim ({endorsement_match.group(0)!r})"
                 )

@@ -30,9 +30,17 @@ def test_rejects_non_placeholder_tenant_id() -> None:
     violations = check_text(sample, "config.yaml")
     assert any("non-placeholder" in v for v in violations)
 
+    kql_sample = f'SigninLogs | where TenantId == "{fake_guid}"'
+    kql_violations = check_text(kql_sample, "rule.kql")
+    assert any("non-placeholder" in v for v in kql_violations)
+
 
 def test_rejects_endorsement_claim() -> None:
     phrase = "official " + "ASD solution"
     sample = f"This is an {phrase} " + "endorsed " + "by Microsoft."
     violations = check_text(sample, "readme.md")
     assert any("endorsement" in v for v in violations)
+
+    mixed = "This is not " + "endorsed " + "by ASD, but " + "endorsed " + "by Microsoft."
+    mixed_violations = check_text(mixed, "readme.md")
+    assert any("endorsement" in v for v in mixed_violations)

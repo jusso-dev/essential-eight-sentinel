@@ -26,14 +26,14 @@ def _yaml_files(directory: Path) -> list[Path]:
     if not directory.exists():
         return []
     return sorted(
-        list(directory.glob("*.yaml")) + list(directory.glob("*.yml"))
+        list(directory.rglob("*.yaml")) + list(directory.rglob("*.yml"))
     )
 
 
 def _json_files(directory: Path) -> list[Path]:
     if not directory.exists():
         return []
-    return sorted(directory.glob("*.json"))
+    return sorted(directory.rglob("*.json"))
 
 
 def test_solution_layout_exists() -> None:

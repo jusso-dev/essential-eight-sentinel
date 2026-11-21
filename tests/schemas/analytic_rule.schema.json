@@ -11,16 +11,26 @@
     "severity",
     "status",
     "requiredDataConnectors",
-    "queryFrequency",
-    "queryPeriod",
-    "triggerOperator",
-    "triggerThreshold",
     "tactics",
     "relevantTechniques",
     "query",
     "version",
     "kind"
   ],
+  "if": {
+    "properties": {
+      "kind": { "const": "Scheduled" }
+    },
+    "required": ["kind"]
+  },
+  "then": {
+    "required": [
+      "queryFrequency",
+      "queryPeriod",
+      "triggerOperator",
+      "triggerThreshold"
+    ]
+  },
   "properties": {
     "id": {
       "type": "string",
@@ -41,11 +51,10 @@
     },
     "status": {
       "type": "string",
-      "enum": ["Available", "Deprecated"]
+      "enum": ["Available", "InPreview", "Deprecated"]
     },
     "requiredDataConnectors": {
       "type": "array",
-      "minItems": 1,
       "items": {
         "type": "object",
         "required": ["connectorId", "dataTypes"],

@@ -74,6 +74,19 @@ def test_rejects_trailing_pipe() -> None:
     assert any("Empty pipe stage" in str(e) for e in errors)
 
 
+def test_accepts_filter_alias_and_rejects_empty_where() -> None:
+    assert validate_kql('SigninLogs | filter ResultType == "0"') == []
+    assert validate_kql("SigninLogs | where") != []
+    assert validate_kql("SigninLogs | filter") != []
+    assert validate_kql('SigninLogs | filter ResultType = "0"') != []
+
+
+def test_validates_inside_materialize_and_toscalar() -> None:
+    assert validate_kql("let x = materialize(SigninLogs | take 5); x | count") == []
+    assert validate_kql("let x = materialize(SigninLogs |); x") != []
+    assert validate_kql("let c = toscalar(SigninLogs | where); SigninLogs | extend total = c") != []
+
+
 def test_extracts_nested_workbook_queries() -> None:
     workbook = {
         "version": "Notebook/1.0",
