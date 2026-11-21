@@ -1,0 +1,54 @@
+id: 9d6e568e-be97-5b59-8aa5-098220fec00e
+name: Essential Eight Evidence - E8-MFA-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-MFA-ML2-02 (Maturity Level 2 - Multi-factor
+  authentication): Phishing-resistant MFA is enforced for all privileged users authenticating to systems and administrative
+  portals. Reference: https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-policy-admin-mfa'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+  - AuditLogs
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - IdentityInfo
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1078
+- T1556
+tags:
+- EssentialEight:multi-factor-authentication
+- MaturityLevel:ML2
+- Requirement:E8-MFA-ML2-02
+- AssessmentEvidence
+query: 'let privUsers = IdentityInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+
+  | where array_length(AssignedRoles) > 0
+
+  | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);
+
+  SigninLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | extend UserLower = tolower(UserPrincipalName)
+
+  | join kind=inner privUsers on $left.UserLower == $right.AccountUPN
+
+  | extend IsPhishingResistant = tostring(AuthenticationDetails) has_any (''FIDO2'', ''Windows Hello for Business'', ''Certificate-based
+  authentication'', ''Passkey'')
+
+  | extend EvidenceRequirement = ''E8-MFA-ML2-02''
+
+  | summarize TotalSignIns = count(), PhishingResistantSignIns = countif(IsPhishingResistant), WeakSignIns = countif(not(IsPhishingResistant))
+  by EvidenceRequirement, UserPrincipalName, AssignedRolesStr
+
+  | order by WeakSignIns desc'
+version: 1.0.0

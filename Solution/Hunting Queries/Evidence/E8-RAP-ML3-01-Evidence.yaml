@@ -1,0 +1,40 @@
+id: 1975d609-7c16-54c4-b8ca-49d4b5f7ad92
+name: Essential Eight Evidence - E8-RAP-ML3-01 (ML3)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-RAP-ML3-01 (Maturity Level 3 - Restrict
+  administrative privileges): Just-in-time privileged activations require documented justification, approval and time-bound
+  expiry, with all privileged sessions centrally logged. Reference: https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-how-to-use-audit-log'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+  - SigninLogs
+tactics:
+- PrivilegeEscalation
+- Persistence
+relevantTechniques:
+- T1078
+- T1098
+tags:
+- EssentialEight:restrict-admin-privileges
+- MaturityLevel:ML3
+- Requirement:E8-RAP-ML3-01
+- AssessmentEvidence
+query: 'AuditLogs
+
+  | where TimeGenerated > ago(30d)
+
+  | where Category == ''RoleManagement''
+
+  | where OperationName has ''PIM activation''
+
+  | extend Justification = tostring(AdditionalDetails[0].value)
+
+  | extend HasValidJustification = (isnotempty(Justification) and strlen(trim('' '', Justification)) >= 5)
+
+  | extend EvidenceRequirement = ''E8-RAP-ML3-01''
+
+  | project EvidenceRequirement, TimeGenerated, OperationName, Actor = tostring(InitiatedBy.user.userPrincipalName), RoleName
+  = tostring(TargetResources[0].displayName), HasValidJustification, Justification, Result
+
+  | order by HasValidJustification asc, TimeGenerated desc'
+version: 1.0.0

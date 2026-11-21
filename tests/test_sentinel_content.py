@@ -153,6 +153,27 @@ def test_ism_mapping_when_present() -> None:
         assert target.exists(), f"ISM mapping references missing artefact: {row['artefact_path']}"
 
 
+def test_observable_requirements_have_hunting_queries() -> None:
+    req_path = REPO_ROOT / "mappings" / "e8-requirements.yaml"
+    evidence_dir = SOLUTION_DIR / "Hunting Queries" / "Evidence"
+    if not req_path.exists() or not evidence_dir.exists():
+        pytest.skip("Evidence hunting queries not yet created")
+    data = yaml.safe_load(req_path.read_text(encoding="utf-8"))
+    covered_reqs: set[str] = set()
+    for path in _yaml_files(SOLUTION_DIR / "Hunting Queries"):
+        q = yaml.safe_load(path.read_text(encoding="utf-8"))
+        for tag in q.get("tags", []):
+            if isinstance(tag, str) and tag.startswith("Requirement:"):
+                covered_reqs.add(tag.split(":", 1)[1])
+    missing = [
+        req["id"]
+        for strategy in data["strategies"]
+        for req in strategy["requirements"]
+        if req["observability"] == "observable" and req["id"] not in covered_reqs
+    ]
+    assert not missing, f"Observable requirements missing evidence hunting queries: {missing}"
+
+
 def test_repository_style_compliance() -> None:
     violations = check_repository(REPO_ROOT)
     assert not violations, "Style violations found:\n" + "\n".join(violations)

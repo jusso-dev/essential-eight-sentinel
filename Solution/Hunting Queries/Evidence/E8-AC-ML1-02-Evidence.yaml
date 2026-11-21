@@ -1,0 +1,39 @@
+id: bf5db7a3-de8d-5383-abb9-38039cded39e
+name: Essential Eight Evidence - E8-AC-ML1-02 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-AC-ML1-02 (Maturity Level 1 - Application
+  control): Application control is configured to prevent execution from user profile directories and temporary folders on
+  workstations. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceprocessevents-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceProcessEvents
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1204
+- T1562
+tags:
+- EssentialEight:application-control
+- MaturityLevel:ML1
+- Requirement:E8-AC-ML1-02
+- AssessmentEvidence
+query: 'DeviceProcessEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where FolderPath has_any (''\\Users\\'', ''\\AppData\\'', ''\\Temp\\'', ''\\Downloads\\'')
+
+  | where FileName endswith ''.exe'' or FileName endswith ''.ps1'' or FileName endswith ''.bat'' or FileName endswith ''.scr''
+  or FileName endswith ''.hta''
+
+  | summarize Executions = count(), Devices = dcount(DeviceId), SampleDevices = make_set(DeviceName, 5) by FileName, FolderPath,
+  SHA256
+
+  | extend EvidenceRequirement = ''E8-AC-ML1-02''
+
+  | project EvidenceRequirement, FileName, FolderPath, SHA256, Devices, Executions, SampleDevices
+
+  | order by Devices desc, Executions desc'
+version: 1.0.0

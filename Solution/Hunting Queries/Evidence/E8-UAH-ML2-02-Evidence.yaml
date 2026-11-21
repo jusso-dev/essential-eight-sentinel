@@ -1,0 +1,49 @@
+id: cd819ee7-f6d4-53d7-ade1-1c4ba3f57c25
+name: Essential Eight Evidence - E8-UAH-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-UAH-ML2-02 (Maturity Level 2 - User
+  application hardening): .NET Framework 3.5 (including .NET 2.0 and 3.0) and Windows PowerShell 2.0 are disabled or removed.
+  Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsecureconfigurationassessment-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSecureConfigurationAssessment
+  - DeviceTvmSoftwareInventory
+  - DeviceProcessEvents
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1059
+- T1218
+tags:
+- EssentialEight:user-application-hardening
+- MaturityLevel:ML2
+- Requirement:E8-UAH-ML2-02
+- AssessmentEvidence
+query: 'let dotNet = DeviceTvmSoftwareInventory
+
+  | where TimeGenerated > ago(14d)
+
+  | where SoftwareName has_any (''dotnet'', ''.net_framework'', ''net_framework'') and SoftwareVersion matches regex ''^(2|3)\.''
+
+  | summarize DotNetLegacyVersions = make_set(strcat(SoftwareName, '' '', SoftwareVersion), 10) by DeviceId, DeviceName;
+
+  let psV2 = DeviceProcessEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where FileName in~ (''powershell.exe'', ''powershell_ise.exe'') and ProcessCommandLine matches regex ''(?i)(^|\s)-(v|ver|version)\s+2(\.0)?(\s|$)''
+
+  | summarize PsV2Executions = count() by DeviceId, DeviceName;
+
+  dotNet
+
+  | join kind=fullouter psV2 on DeviceId
+
+  | extend EvidenceRequirement = ''E8-UAH-ML2-02''
+
+  | project EvidenceRequirement, DeviceName = coalesce(DeviceName, DeviceName1), DotNetLegacyVersions, PsV2Executions = coalesce(PsV2Executions,
+  0)
+
+  | order by PsV2Executions desc'
+version: 1.0.0

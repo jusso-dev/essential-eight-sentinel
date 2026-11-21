@@ -1,0 +1,39 @@
+id: 7cec49a1-d4d7-5c66-8bf8-f557f3010206
+name: Essential Eight Evidence - E8-MFA-ML2-01 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-MFA-ML2-01 (Maturity Level 2 - Multi-factor
+  authentication): Phishing-resistant MFA (such as FIDO2 security keys, Windows Hello for Business or certificate-based authentication)
+  is used for online services and important data repositories. Reference: https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+  - AuditLogs
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1078
+- T1556
+tags:
+- EssentialEight:multi-factor-authentication
+- MaturityLevel:ML2
+- Requirement:E8-MFA-ML2-01
+- AssessmentEvidence
+query: 'SigninLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | extend IsPhishingResistant = tostring(AuthenticationDetails) has_any (''FIDO2'', ''Windows Hello for Business'', ''Certificate-based
+  authentication'', ''Passkey'')
+
+  | extend EvidenceRequirement = ''E8-MFA-ML2-01''
+
+  | summarize TotalSignIns = count(), PhishingResistantSignIns = countif(IsPhishingResistant), NonPhishingResistantSignIns
+  = countif(not(IsPhishingResistant)) by EvidenceRequirement, AppDisplayName
+
+  | extend PhishingResistantPct = round(100.0 * PhishingResistantSignIns / max_of(TotalSignIns, 1), 1)
+
+  | order by NonPhishingResistantSignIns desc'
+version: 1.0.0

@@ -1,0 +1,51 @@
+id: 5a53b6d5-a73d-5ca1-b7c9-72b7b4e685a6
+name: Essential Eight Evidence - E8-AC-ML2-01 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-AC-ML2-01 (Maturity Level 2 - Application
+  control): Application control is implemented on internet-facing servers in addition to workstations. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceinfo-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceInfo
+  - DeviceTvmSecureConfigurationAssessment
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1204
+- T1562
+tags:
+- EssentialEight:application-control
+- MaturityLevel:ML2
+- Requirement:E8-AC-ML2-01
+- AssessmentEvidence
+query: 'let internetServers = DeviceInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, MachineGroup, DeviceType, IsInternetFacing, OSPlatform) by DeviceId, DeviceName
+
+  | where IsInternetFacing == true and DeviceType !~ ''Workstation'';
+
+  let acEvents = DeviceEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where ActionType startswith ''AppControl''
+
+  | summarize BlockedEvents = countif(ActionType has ''Blocked''), AuditedEvents = countif(ActionType has ''Audited'') by
+  DeviceId;
+
+  internetServers
+
+  | join kind=leftouter acEvents on DeviceId
+
+  | extend EvidenceRequirement = ''E8-AC-ML2-01''
+
+  | extend Mode = case(coalesce(BlockedEvents, 0) > 0, ''Enforced'', coalesce(AuditedEvents, 0) > 0, ''AuditOnly'', ''NoAppControlTelemetry'')
+
+  | project EvidenceRequirement, DeviceName, MachineGroup, OSPlatform, Mode, BlockedEvents = coalesce(BlockedEvents, 0), AuditedEvents
+  = coalesce(AuditedEvents, 0)
+
+  | order by Mode asc'
+version: 1.0.0

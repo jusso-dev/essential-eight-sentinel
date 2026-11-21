@@ -1,0 +1,35 @@
+id: 35286f3f-a578-5ec9-8f09-01e9f22a054f
+name: Essential Eight Evidence - E8-PA-ML1-03 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-PA-ML1-03 (Maturity Level 1 - Patch
+  applications): Applications that are no longer supported by vendors are removed. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwareinventory-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareInventory
+  - DeviceTvmSoftwareVulnerabilities
+tactics:
+- InitialAccess
+- Execution
+relevantTechniques:
+- T1190
+- T1203
+tags:
+- EssentialEight:patch-applications
+- MaturityLevel:ML1
+- Requirement:E8-PA-ML1-03
+- AssessmentEvidence
+query: 'DeviceTvmSoftwareInventory
+
+  | where TimeGenerated > ago(14d)
+
+  | where EndOfSupportStatus == ''True'' or (isnotnull(EndOfSupportDate) and EndOfSupportDate < now())
+
+  | summarize arg_max(TimeGenerated, EndOfSupportStatus, EndOfSupportDate) by DeviceId, DeviceName, SoftwareVendor, SoftwareName,
+  SoftwareVersion
+
+  | extend EvidenceRequirement = ''E8-PA-ML1-03''
+
+  | project EvidenceRequirement, DeviceName, SoftwareVendor, SoftwareName, SoftwareVersion, EndOfSupportDate
+
+  | order by EndOfSupportDate asc, SoftwareName asc'
+version: 1.0.0

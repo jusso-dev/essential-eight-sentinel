@@ -1,0 +1,53 @@
+id: bcf3e88a-5b97-5457-abc4-ee5114d509fe
+name: Essential Eight Evidence - E8-RAP-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-RAP-ML2-02 (Maturity Level 2 - Restrict
+  administrative privileges): Privileged access uses just-in-time elevation (such as Entra PIM) rather than standing Global
+  Administrator or directory role assignments. Reference: https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - IdentityInfo
+tactics:
+- PrivilegeEscalation
+- Persistence
+relevantTechniques:
+- T1078
+- T1098
+tags:
+- EssentialEight:restrict-admin-privileges
+- MaturityLevel:ML2
+- Requirement:E8-RAP-ML2-02
+- AssessmentEvidence
+query: 'let standing = IdentityInfo
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+
+  | where array_length(AssignedRoles) > 0
+
+  | extend EvidenceRequirement = ''E8-RAP-ML2-02''
+
+  | project EvidenceRequirement, RecordType = ''CurrentRoleAssignment'', AccountUPN, Detail = tostring(AssignedRoles), Timestamp
+  = TimeGenerated;
+
+  let roleChanges = AuditLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where Category == ''RoleManagement''
+
+  | where OperationName has_any (''Add member to role'', ''PIM activation'')
+
+  | extend EvidenceRequirement = ''E8-RAP-ML2-02''
+
+  | project EvidenceRequirement, RecordType = OperationName, AccountUPN = tostring(TargetResources[0].userPrincipalName),
+  Detail = tostring(TargetResources[0].displayName), Timestamp = TimeGenerated;
+
+  union standing, roleChanges
+
+  | order by Timestamp desc'
+version: 1.0.0

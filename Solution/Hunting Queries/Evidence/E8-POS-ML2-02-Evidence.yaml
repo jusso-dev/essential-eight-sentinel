@@ -1,0 +1,57 @@
+id: 14993e67-8ec9-5b15-b99e-91a45b1f16c8
+name: Essential Eight Evidence - E8-POS-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-POS-ML2-02 (Maturity Level 2 - Patch
+  operating systems): Patches, updates or vendor mitigations for non-critical vulnerabilities in operating systems of internet-facing
+  services are applied within two weeks of release. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareVulnerabilities
+  - DeviceTvmSoftwareVulnerabilitiesKB
+  - DeviceInfo
+tactics:
+- InitialAccess
+- PrivilegeEscalation
+relevantTechniques:
+- T1190
+- T1068
+tags:
+- EssentialEight:patch-operating-systems
+- MaturityLevel:ML2
+- Requirement:E8-POS-ML2-02
+- AssessmentEvidence
+query: 'let kb = DeviceTvmSoftwareVulnerabilitiesKB
+
+  | summarize arg_max(TimeGenerated, PublishedDate) by CveId;
+
+  let exposed = DeviceInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform) by DeviceId, DeviceName
+
+  | where IsInternetFacing == true;
+
+  DeviceTvmSoftwareVulnerabilities
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, SoftwareName, VulnerabilitySeverityLevel, RecommendedSecurityUpdate) by DeviceId, DeviceName,
+  CveId
+
+  | where SoftwareName has_any (''windows'', ''ubuntu'', ''rhel'', ''debian'', ''centos'', ''macos'', ''linux_kernel'', ''server'')
+
+  | join kind=inner exposed on DeviceId
+
+  | join kind=inner kb on CveId
+
+  | extend AgeDays = round(datetime_diff(''hour'', now(), PublishedDate) / 24.0, 1)
+
+  | where AgeDays > 14
+
+  | extend EvidenceRequirement = ''E8-POS-ML2-02''
+
+  | project EvidenceRequirement, DeviceName, MachineGroup, OSPlatform, CveId, VulnerabilitySeverityLevel, AgeDays, RecommendedSecurityUpdate
+
+  | order by AgeDays desc'
+version: 1.0.0

@@ -1,0 +1,58 @@
+id: 7e3bb512-4d8c-5228-ab33-25cfea235fc1
+name: Essential Eight Evidence - E8-PA-ML1-01 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-PA-ML1-01 (Maturity Level 1 - Patch
+  applications): Patches, updates or vendor mitigations for vulnerabilities in online services are applied within 48 hours
+  when assessed as critical by vendors or when working exploits exist. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareVulnerabilities
+  - DeviceTvmSoftwareVulnerabilitiesKB
+  - DeviceInfo
+tactics:
+- InitialAccess
+- Execution
+relevantTechniques:
+- T1190
+- T1203
+tags:
+- EssentialEight:patch-applications
+- MaturityLevel:ML1
+- Requirement:E8-PA-ML1-01
+- AssessmentEvidence
+query: 'let kb = DeviceTvmSoftwareVulnerabilitiesKB
+
+  | summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable, CvssScore) by CveId;
+
+  let exposed = DeviceInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing) by DeviceId, DeviceName
+
+  | where IsInternetFacing == true;
+
+  DeviceTvmSoftwareVulnerabilities
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel, CveTags, RecommendedSecurityUpdate)
+  by DeviceId, DeviceName, CveId
+
+  | join kind=inner exposed on DeviceId
+
+  | join kind=inner kb on CveId
+
+  | extend AgeHours = datetime_diff(''hour'', now(), PublishedDate)
+
+  | extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any (''ZeroDay'', ''ExploitInTheWild'', ''CISA_KEV''))
+
+  | where (IsExploited or VulnerabilitySeverityLevel == ''Critical'') and AgeHours > 48
+
+  | extend EvidenceRequirement = ''E8-PA-ML1-01''
+
+  | project EvidenceRequirement, DeviceName, MachineGroup, CveId, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel,
+  IsExploited, AgeHours, RecommendedSecurityUpdate
+
+  | order by AgeHours desc'
+version: 1.0.0
