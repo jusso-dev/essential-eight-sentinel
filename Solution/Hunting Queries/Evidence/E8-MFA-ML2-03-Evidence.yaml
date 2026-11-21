@@ -1,0 +1,38 @@
+id: 9174666b-8c80-59d6-8c2c-f52bdc941c2e
+name: Essential Eight Evidence - E8-MFA-ML2-03 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-MFA-ML2-03 (Maturity Level 2 - Multi-factor
+  authentication): Successful and unsuccessful MFA events and Conditional Access policy changes (including new exclusions)
+  are centrally logged and monitored. Reference: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-audit-logs'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+  - AuditLogs
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1078
+- T1556
+tags:
+- EssentialEight:multi-factor-authentication
+- MaturityLevel:ML2
+- Requirement:E8-MFA-ML2-03
+- AssessmentEvidence
+query: 'AuditLogs
+
+  | where TimeGenerated > ago(30d)
+
+  | where Category == ''Policy''
+
+  | where OperationName has ''conditional access''
+
+  | mv-expand Target = TargetResources
+
+  | extend EvidenceRequirement = ''E8-MFA-ML2-03''
+
+  | project EvidenceRequirement, TimeGenerated, OperationName, PolicyName = tostring(Target.displayName), Actor = coalesce(tostring(InitiatedBy.user.userPrincipalName),
+  tostring(InitiatedBy.app.displayName)), Result, ModifiedProperties = tostring(Target.modifiedProperties)
+
+  | order by TimeGenerated desc'
+version: 1.0.0

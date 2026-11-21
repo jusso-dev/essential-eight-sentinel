@@ -1,0 +1,60 @@
+id: 7ad9295f-52db-5985-889f-5eda1512e925
+name: Essential Eight Evidence - E8-POS-ML1-01 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-POS-ML1-01 (Maturity Level 1 - Patch
+  operating systems): Patches, updates or vendor mitigations for vulnerabilities in operating systems of internet-facing services
+  are applied within 48 hours when assessed as critical by vendors or when working exploits exist. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareVulnerabilities
+  - DeviceTvmSoftwareVulnerabilitiesKB
+  - DeviceInfo
+tactics:
+- InitialAccess
+- PrivilegeEscalation
+relevantTechniques:
+- T1190
+- T1068
+tags:
+- EssentialEight:patch-operating-systems
+- MaturityLevel:ML1
+- Requirement:E8-POS-ML1-01
+- AssessmentEvidence
+query: 'let kb = DeviceTvmSoftwareVulnerabilitiesKB
+
+  | summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable) by CveId;
+
+  let exposed = DeviceInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform) by DeviceId, DeviceName
+
+  | where IsInternetFacing == true;
+
+  DeviceTvmSoftwareVulnerabilities
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, SoftwareName, VulnerabilitySeverityLevel, CveTags, RecommendedSecurityUpdate) by DeviceId,
+  DeviceName, CveId
+
+  | where SoftwareName has_any (''windows'', ''ubuntu'', ''rhel'', ''debian'', ''centos'', ''macos'', ''linux_kernel'', ''server'')
+
+  | join kind=inner exposed on DeviceId
+
+  | join kind=inner kb on CveId
+
+  | extend AgeHours = datetime_diff(''hour'', now(), PublishedDate)
+
+  | extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any (''ZeroDay'', ''ExploitInTheWild'', ''CISA_KEV''))
+
+  | where (IsExploited or VulnerabilitySeverityLevel == ''Critical'') and AgeHours > 48
+
+  | extend EvidenceRequirement = ''E8-POS-ML1-01''
+
+  | project EvidenceRequirement, DeviceName, MachineGroup, OSPlatform, CveId, VulnerabilitySeverityLevel, IsExploited, AgeHours,
+  RecommendedSecurityUpdate
+
+  | order by AgeHours desc'
+version: 1.0.0

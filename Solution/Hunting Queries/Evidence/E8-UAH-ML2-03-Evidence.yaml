@@ -1,0 +1,51 @@
+id: f1cd3b28-f939-54ba-bd3a-7d30ac19e40b
+name: Essential Eight Evidence - E8-UAH-ML2-03 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-UAH-ML2-03 (Maturity Level 2 - User
+  application hardening): PowerShell is configured to use Constrained Language Mode and PowerShell execution events are centrally
+  logged. Reference: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceRegistryEvents
+- connectorId: SecurityEvents
+  dataTypes:
+  - SecurityEvent
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1059
+- T1218
+tags:
+- EssentialEight:user-application-hardening
+- MaturityLevel:ML2
+- Requirement:E8-UAH-ML2-03
+- AssessmentEvidence
+query: 'let clm = DeviceRegistryEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where RegistryValueName =~ ''__PSLockdownPolicy''
+
+  | summarize arg_max(TimeGenerated, RegistryValueData) by DeviceId, DeviceName;
+
+  let psLogs = DeviceEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where ActionType == ''PowerShellCommand''
+
+  | summarize LoggedCommands = count() by DeviceId, DeviceName;
+
+  clm
+
+  | join kind=fullouter psLogs on DeviceId
+
+  | extend EvidenceRequirement = ''E8-UAH-ML2-03''
+
+  | project EvidenceRequirement, DeviceName = coalesce(DeviceName, DeviceName1), PSLockdownPolicy = coalesce(RegistryValueData,
+  ''NotObserved''), LoggedCommands = coalesce(LoggedCommands, 0)
+
+  | order by LoggedCommands desc'
+version: 1.0.0

@@ -1,0 +1,40 @@
+id: 87a79aab-8b6a-55fb-b1ca-e927c2ee8fa2
+name: Essential Eight Evidence - E8-OM-ML1-01 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-OM-ML1-01 (Maturity Level 1 - Configure
+  Microsoft Office macro settings): Microsoft Office macros are disabled for users that do not have a demonstrated business
+  requirement. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsecureconfigurationassessment-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSecureConfigurationAssessment
+- connectorId: MicrosoftIntune
+  dataTypes:
+  - IntuneDeviceComplianceOrg
+tactics:
+- Execution
+- InitialAccess
+relevantTechniques:
+- T1204.002
+- T1566.001
+tags:
+- EssentialEight:configure-office-macros
+- MaturityLevel:ML1
+- Requirement:E8-OM-ML1-01
+- AssessmentEvidence
+query: 'DeviceTvmSecureConfigurationAssessment
+
+  | where TimeGenerated > ago(14d)
+
+  | where ConfigurationSubcategory has_any (''Office'', ''Macro'') or ConfigurationId in (''scid-2501'', ''scid-2502'', ''scid-2503'',
+  ''scid-2504'', ''scid-2505'')
+
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationSubcategory) by DeviceId, DeviceName, ConfigurationId
+
+  | where IsApplicable == true
+
+  | extend EvidenceRequirement = ''E8-OM-ML1-01''
+
+  | project EvidenceRequirement, DeviceName, ConfigurationId, ConfigurationSubcategory, IsCompliant
+
+  | order by IsCompliant asc, DeviceName asc'
+version: 1.0.0

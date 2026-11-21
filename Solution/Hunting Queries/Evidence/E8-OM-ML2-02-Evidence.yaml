@@ -1,0 +1,34 @@
+id: fe2df4e7-c31a-5da6-b6b7-c93852e34ff0
+name: Essential Eight Evidence - E8-OM-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-OM-ML2-02 (Maturity Level 2 - Configure
+  Microsoft Office macro settings): Microsoft Office macros are blocked from making Win32 API calls and allowed/blocked macro
+  executions are centrally logged. Reference: https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceProcessEvents
+  - DeviceTvmSecureConfigurationAssessment
+tactics:
+- Execution
+- InitialAccess
+relevantTechniques:
+- T1204.002
+- T1566.001
+tags:
+- EssentialEight:configure-office-macros
+- MaturityLevel:ML2
+- Requirement:E8-OM-ML2-02
+- AssessmentEvidence
+query: 'DeviceEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where ActionType in (''AsrOfficeMacroWin32ApiCallsBlocked'', ''AsrOfficeMacroWin32ApiCallsAudited'')
+
+  | extend EvidenceRequirement = ''E8-OM-ML2-02''
+
+  | project EvidenceRequirement, TimeGenerated, DeviceName, ActionType, FileName, FolderPath, InitiatingProcessFileName, InitiatingProcessAccountName
+
+  | order by TimeGenerated desc'
+version: 1.0.0

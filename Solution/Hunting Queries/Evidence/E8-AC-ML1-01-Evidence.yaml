@@ -1,0 +1,54 @@
+id: 24bccc5b-de5b-52c0-8588-663924a37bcc
+name: Essential Eight Evidence - E8-AC-ML1-01 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-AC-ML1-01 (Maturity Level 1 - Application
+  control): Application control is implemented on workstations to restrict execution of executables, software libraries, scripts,
+  installers, compiled HTML, HTML applications and control panel applets to an organisation-approved set. Reference: https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/querying-application-control-events-centrally-using-advanced-hunting'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceTvmSecureConfigurationAssessment
+- connectorId: MicrosoftIntune
+  dataTypes:
+  - IntuneDeviceComplianceOrg
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1204
+- T1562
+tags:
+- EssentialEight:application-control
+- MaturityLevel:ML1
+- Requirement:E8-AC-ML1-01
+- AssessmentEvidence
+query: 'let workstations = DeviceInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, MachineGroup, DeviceType, OSPlatform) by DeviceId, DeviceName
+
+  | where DeviceType =~ ''Workstation'';
+
+  let acEvents = DeviceEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where ActionType startswith ''AppControl''
+
+  | summarize BlockedEvents = countif(ActionType has ''Blocked''), AuditedEvents = countif(ActionType has ''Audited'') by
+  DeviceId;
+
+  workstations
+
+  | join kind=leftouter acEvents on DeviceId
+
+  | extend EvidenceRequirement = ''E8-AC-ML1-01''
+
+  | extend Mode = case(coalesce(BlockedEvents, 0) > 0, ''Enforced'', coalesce(AuditedEvents, 0) > 0, ''AuditOnly'', ''NoAppControlTelemetry'')
+
+  | project EvidenceRequirement, DeviceName, MachineGroup, OSPlatform, Mode, BlockedEvents = coalesce(BlockedEvents, 0), AuditedEvents
+  = coalesce(AuditedEvents, 0)
+
+  | order by Mode asc, DeviceName asc'
+version: 1.0.0

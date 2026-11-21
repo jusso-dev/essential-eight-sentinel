@@ -1,0 +1,61 @@
+id: 9df16cf7-a982-50e1-81a6-eee8aef5e45f
+name: Essential Eight Evidence - E8-RAP-ML3-02 (ML3)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-RAP-ML3-02 (Maturity Level 3 - Restrict
+  administrative privileges): Privileged administrative tasks are performed from hardened Privileged Access Workstations (PAWs)
+  using phishing-resistant MFA and hardware-backed memory integrity. Reference: https://learn.microsoft.com/en-us/security/privileged-access-workstations/privileged-access-devices'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - IdentityInfo
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSecureConfigurationAssessment
+- connectorId: MicrosoftIntune
+  dataTypes:
+  - IntuneDevices
+tactics:
+- PrivilegeEscalation
+- Persistence
+relevantTechniques:
+- T1078
+- T1098
+tags:
+- EssentialEight:restrict-admin-privileges
+- MaturityLevel:ML3
+- Requirement:E8-RAP-ML3-02
+- AssessmentEvidence
+query: 'let privUsers = IdentityInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+
+  | where array_length(AssignedRoles) > 0
+
+  | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);
+
+  SigninLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | extend UserLower = tolower(UserPrincipalName)
+
+  | join kind=inner privUsers on $left.UserLower == $right.AccountUPN
+
+  | extend IsPhishingResistant = tostring(AuthenticationDetails) has_any (''FIDO2'', ''Windows Hello for Business'', ''Certificate-based
+  authentication'', ''Passkey'')
+
+  | extend IsCompliantDevice = tostring(DeviceDetail.isCompliant) =~ ''true''
+
+  | extend EvidenceRequirement = ''E8-RAP-ML3-02''
+
+  | summarize SignIns = count(), PhishingResistantSignIns = countif(IsPhishingResistant), CompliantDeviceSignIns = countif(IsCompliantDevice)
+  by EvidenceRequirement, UserPrincipalName, AssignedRolesStr
+
+  | order by PhishingResistantSignIns asc'
+version: 1.0.0

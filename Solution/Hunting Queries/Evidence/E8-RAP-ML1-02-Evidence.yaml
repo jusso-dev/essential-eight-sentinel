@@ -1,0 +1,59 @@
+id: 76ce22d8-ff23-5ad6-907c-0ca8f4c07bca
+name: Essential Eight Evidence - E8-RAP-ML1-02 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-RAP-ML1-02 (Maturity Level 1 - Restrict
+  administrative privileges): Privileged accounts (excluding local administrator accounts) are prevented from accessing the
+  internet, email and web services. Reference: https://learn.microsoft.com/en-us/azure/sentinel/ueba-reference'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+- connectorId: BehaviorAnalytics
+  dataTypes:
+  - IdentityInfo
+- connectorId: Office365
+  dataTypes:
+  - OfficeActivity
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceNetworkEvents
+tactics:
+- PrivilegeEscalation
+- Persistence
+relevantTechniques:
+- T1078
+- T1098
+tags:
+- EssentialEight:restrict-admin-privileges
+- MaturityLevel:ML1
+- Requirement:E8-RAP-ML1-02
+- AssessmentEvidence
+query: 'let privUsers = IdentityInfo
+
+  | where TimeGenerated > ago(30d)
+
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+
+  | where array_length(AssignedRoles) > 0
+
+  | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);
+
+  SigninLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | extend UserLower = tolower(UserPrincipalName)
+
+  | join kind=inner privUsers on $left.UserLower == $right.AccountUPN
+
+  | where AppDisplayName has_any (''Exchange Online'', ''Outlook'', ''Microsoft Teams'', ''SharePoint'', ''OneDrive'', ''Microsoft
+  365'')
+
+  | extend EvidenceRequirement = ''E8-RAP-ML1-02''
+
+  | summarize SignIns = count(), Apps = make_set(AppDisplayName, 10), LastSeen = max(TimeGenerated) by EvidenceRequirement,
+  UserPrincipalName, AssignedRolesStr
+
+  | order by SignIns desc'
+version: 1.0.0

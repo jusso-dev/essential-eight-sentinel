@@ -1,0 +1,53 @@
+id: 377b2519-a04d-5c54-a935-9b6d7839021f
+name: Essential Eight Evidence - E8-AC-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-AC-ML2-02 (Maturity Level 2 - Application
+  control): Microsoft recommended block rules and vulnerable driver blocklists are implemented to prevent application control
+  bypasses. Reference: https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/microsoft-recommended-block-rules'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceTvmSecureConfigurationAssessment
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1204
+- T1562
+tags:
+- EssentialEight:application-control
+- MaturityLevel:ML2
+- Requirement:E8-AC-ML2-02
+- AssessmentEvidence
+query: 'let tvm = DeviceTvmSecureConfigurationAssessment
+
+  | where TimeGenerated > ago(14d)
+
+  | where ConfigurationSubcategory has_any (''Application control'', ''Driver'', ''Code integrity'')
+
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, DeviceName, ConfigurationId
+
+  | where IsApplicable == true
+
+  | summarize CompliantChecks = countif(IsCompliant == true), NonCompliantChecks = countif(IsCompliant == false) by DeviceId,
+  DeviceName;
+
+  let revoked = DeviceEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where ActionType in (''AppControlCodeIntegrityDriverRevoked'', ''AppControlCodeIntegrityImageRevoked'')
+
+  | summarize RevokedBlocks = count() by DeviceId;
+
+  tvm
+
+  | join kind=leftouter revoked on DeviceId
+
+  | extend EvidenceRequirement = ''E8-AC-ML2-02''
+
+  | project EvidenceRequirement, DeviceName, CompliantChecks, NonCompliantChecks, RevokedBlocks = coalesce(RevokedBlocks,
+  0)
+
+  | order by NonCompliantChecks desc'
+version: 1.0.0

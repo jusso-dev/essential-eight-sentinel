@@ -1,0 +1,31 @@
+id: 3a3db9cf-231d-52d0-abb9-58222964464c
+name: Essential Eight Evidence - E8-POS-ML1-03 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-POS-ML1-03 (Maturity Level 1 - Patch
+  operating systems): Operating systems that are no longer supported by vendors are replaced. Reference: https://learn.microsoft.com/en-us/lifecycle/products/'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceInfo
+  - DeviceTvmSoftwareVulnerabilities
+- connectorId: MicrosoftIntune
+  dataTypes:
+  - IntuneDevices
+tactics:
+- InitialAccess
+- PrivilegeEscalation
+relevantTechniques:
+- T1190
+- T1068
+tags:
+- EssentialEight:patch-operating-systems
+- MaturityLevel:ML1
+- Requirement:E8-POS-ML1-03
+- AssessmentEvidence
+query: "DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform,\
+  \ OSVersion, OSBuild, OSVersionInfo) by DeviceId, DeviceName\n| extend IsUnsupportedOS = (\n    OSPlatform in~ ('Windows7',\
+  \ 'Windows8', 'Windows81', 'WindowsXP', 'WindowsVista', 'WindowsServer2008', 'WindowsServer2008R2', 'WindowsServer2012',\
+  \ 'WindowsServer2012R2')\n    or (OSPlatform =~ 'Windows10' and toint(OSBuild) < 19045)\n    or (OSPlatform =~ 'Windows11'\
+  \ and toint(OSBuild) < 22631)\n    or OSVersionInfo has_any ('EndOfLife', 'Unsupported')\n)\n| extend EvidenceRequirement\
+  \ = 'E8-POS-ML1-03'\n| project EvidenceRequirement, DeviceName, MachineGroup, IsInternetFacing, OSPlatform, OSVersion, OSBuild,\
+  \ IsUnsupportedOS\n| order by IsUnsupportedOS desc, DeviceName asc"
+version: 1.0.0

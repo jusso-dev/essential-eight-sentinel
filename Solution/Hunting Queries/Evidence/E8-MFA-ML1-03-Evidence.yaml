@@ -1,0 +1,36 @@
+id: 536a1cfa-8699-527c-8ad3-1f8c0d991ca8
+name: Essential Eight Evidence - E8-MFA-ML1-03 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-MFA-ML1-03 (Maturity Level 1 - Multi-factor
+  authentication): Legacy authentication protocols that do not support MFA are blocked. Reference: https://learn.microsoft.com/en-us/entra/identity/conditional-access/block-legacy-authentication'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+  - AADNonInteractiveUserSignInLogs
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1078
+- T1556
+tags:
+- EssentialEight:multi-factor-authentication
+- MaturityLevel:ML1
+- Requirement:E8-MFA-ML1-03
+- AssessmentEvidence
+query: 'union isfuzzy=true SigninLogs, AADNonInteractiveUserSignInLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | where ClientAppUsed in~ (''IMAP4'', ''POP3'', ''SMTP'', ''Exchange ActiveSync'', ''Exchange Web Services'', ''Autodiscover'',
+  ''MAPI Over HTTP'', ''Other clients'')
+
+  | extend EvidenceRequirement = ''E8-MFA-ML1-03''
+
+  | summarize SignIns = count(), DistinctIPs = dcount(IPAddress), Apps = make_set(AppDisplayName, 5), LastSeen = max(TimeGenerated)
+  by EvidenceRequirement, UserPrincipalName, ClientAppUsed
+
+  | order by SignIns desc'
+version: 1.0.0

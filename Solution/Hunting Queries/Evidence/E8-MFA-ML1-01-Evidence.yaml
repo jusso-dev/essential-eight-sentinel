@@ -1,0 +1,39 @@
+id: eddf5d43-00b4-5d5d-9edc-5c9dd08260cc
+name: Essential Eight Evidence - E8-MFA-ML1-01 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-MFA-ML1-01 (Maturity Level 1 - Multi-factor
+  authentication): Multi-factor authentication is used to authenticate users to their organisation''s online services. Reference:
+  https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins'
+requiredDataConnectors:
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - SigninLogs
+  - AADNonInteractiveUserSignInLogs
+tactics:
+- CredentialAccess
+- InitialAccess
+relevantTechniques:
+- T1078
+- T1556
+tags:
+- EssentialEight:multi-factor-authentication
+- MaturityLevel:ML1
+- Requirement:E8-MFA-ML1-01
+- AssessmentEvidence
+query: 'SigninLogs
+
+  | where TimeGenerated > ago(14d)
+
+  | where ResultType == ''0''
+
+  | extend IsMfa = (AuthenticationRequirement == ''multiFactorAuthentication'' or tostring(AuthenticationDetails) has_any
+  (''FIDO2'', ''Windows Hello for Business'', ''Certificate-based authentication'', ''Passkey''))
+
+  | extend EvidenceRequirement = ''E8-MFA-ML1-01''
+
+  | summarize TotalSignIns = count(), MfaSignIns = countif(IsMfa), SingleFactorSignIns = countif(not(IsMfa)), DistinctUsers
+  = dcount(UserPrincipalName) by EvidenceRequirement, AppDisplayName
+
+  | extend MfaCoveragePct = round(100.0 * MfaSignIns / max_of(TotalSignIns, 1), 1)
+
+  | order by SingleFactorSignIns desc'
+version: 1.0.0

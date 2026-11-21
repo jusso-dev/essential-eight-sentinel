@@ -1,0 +1,40 @@
+id: 060208e3-d1cf-5a81-b475-bf8e0ffe1900
+name: Essential Eight Evidence - E8-UAH-ML2-01 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-UAH-ML2-01 (Maturity Level 2 - User
+  application hardening): Microsoft Office, web browsers and PDF software are prevented from creating child processes, creating
+  executable content and injecting code into other processes. Reference: https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceEvents
+  - DeviceTvmSecureConfigurationAssessment
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1059
+- T1218
+tags:
+- EssentialEight:user-application-hardening
+- MaturityLevel:ML2
+- Requirement:E8-UAH-ML2-01
+- AssessmentEvidence
+query: 'DeviceTvmSecureConfigurationAssessment
+
+  | where TimeGenerated > ago(14d)
+
+  | where ConfigurationSubcategory has ''Attack surface reduction'' or ConfigurationId has ''asr''
+
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationSubcategory) by DeviceId, DeviceName, ConfigurationId
+
+  | where IsApplicable == true
+
+  | extend EvidenceRequirement = ''E8-UAH-ML2-01''
+
+  | summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant
+  == false) by EvidenceRequirement, ConfigurationId, ConfigurationSubcategory
+
+  | extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)
+
+  | order by CompliancePct asc'
+version: 1.0.0

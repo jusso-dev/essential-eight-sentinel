@@ -1,0 +1,51 @@
+id: 83f4c539-4688-5f91-8742-9ec469450b48
+name: Essential Eight Evidence - E8-PA-ML1-02 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-PA-ML1-02 (Maturity Level 1 - Patch
+  applications): Patches, updates or vendor mitigations for vulnerabilities in office productivity suites, web browsers and
+  extensions, email clients, PDF software and security products are applied within two weeks of release, or within 48 hours
+  if an exploit exists. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilitieskb-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareVulnerabilities
+  - DeviceTvmSoftwareVulnerabilitiesKB
+tactics:
+- InitialAccess
+- Execution
+relevantTechniques:
+- T1190
+- T1203
+tags:
+- EssentialEight:patch-applications
+- MaturityLevel:ML1
+- Requirement:E8-PA-ML1-02
+- AssessmentEvidence
+query: 'let kb = DeviceTvmSoftwareVulnerabilitiesKB
+
+  | summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable) by CveId;
+
+  DeviceTvmSoftwareVulnerabilities
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel, CveTags, RecommendedSecurityUpdate)
+  by DeviceId, DeviceName, CveId
+
+  | where SoftwareName has_any (''chrome'', ''edge'', ''firefox'', ''safari'', ''office'', ''word'', ''excel'', ''outlook'',
+  ''acrobat'', ''reader'', ''foxit'', ''defender'')
+
+  | join kind=inner kb on CveId
+
+  | extend AgeHours = datetime_diff(''hour'', now(), PublishedDate)
+
+  | extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any (''ZeroDay'', ''ExploitInTheWild'', ''CISA_KEV''))
+
+  | where (IsExploited and AgeHours > 48) or AgeHours > (14 * 24)
+
+  | extend EvidenceRequirement = ''E8-PA-ML1-02''
+
+  | project EvidenceRequirement, DeviceName, CveId, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel,
+  IsExploited, AgeDays = round(AgeHours / 24.0, 1), RecommendedSecurityUpdate
+
+  | order by AgeDays desc'
+version: 1.0.0

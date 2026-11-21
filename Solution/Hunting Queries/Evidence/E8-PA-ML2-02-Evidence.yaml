@@ -1,0 +1,48 @@
+id: d150465e-f647-5241-b67a-3c013584e86d
+name: Essential Eight Evidence - E8-PA-ML2-02 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-PA-ML2-02 (Maturity Level 2 - Patch
+  applications): Patches, updates or vendor mitigations for vulnerabilities in other applications are applied within one month
+  of release. Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSoftwareVulnerabilities
+  - DeviceTvmSoftwareVulnerabilitiesKB
+tactics:
+- InitialAccess
+- Execution
+relevantTechniques:
+- T1190
+- T1203
+tags:
+- EssentialEight:patch-applications
+- MaturityLevel:ML2
+- Requirement:E8-PA-ML2-02
+- AssessmentEvidence
+query: 'let kb = DeviceTvmSoftwareVulnerabilitiesKB
+
+  | summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable) by CveId;
+
+  DeviceTvmSoftwareVulnerabilities
+
+  | where TimeGenerated > ago(14d)
+
+  | summarize arg_max(TimeGenerated, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel, RecommendedSecurityUpdate)
+  by DeviceId, DeviceName, CveId
+
+  | where not(SoftwareName has_any (''windows'', ''ubuntu'', ''rhel'', ''debian'', ''centos'', ''macos'', ''linux_kernel'',
+  ''server''))
+
+  | join kind=inner kb on CveId
+
+  | extend AgeDays = round(datetime_diff(''hour'', now(), PublishedDate) / 24.0, 1)
+
+  | where AgeDays > 30
+
+  | extend EvidenceRequirement = ''E8-PA-ML2-02''
+
+  | project EvidenceRequirement, DeviceName, CveId, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel,
+  AgeDays, RecommendedSecurityUpdate
+
+  | order by AgeDays desc'
+version: 1.0.0

@@ -1,0 +1,53 @@
+id: 031a16fb-7649-5a76-a307-415ab48f9266
+name: Essential Eight Evidence - E8-UAH-ML1-02 (ML1)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-UAH-ML1-02 (Maturity Level 1 - User
+  application hardening): Internet Explorer 11 is disabled or removed, and web browser security settings cannot be changed
+  by users. Reference: https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSecureConfigurationAssessment
+  - DeviceTvmSoftwareInventory
+  - DeviceProcessEvents
+tactics:
+- Execution
+- DefenseEvasion
+relevantTechniques:
+- T1059
+- T1218
+tags:
+- EssentialEight:user-application-hardening
+- MaturityLevel:ML1
+- Requirement:E8-UAH-ML1-02
+- AssessmentEvidence
+query: 'let ieProcs = DeviceProcessEvents
+
+  | where TimeGenerated > ago(14d)
+
+  | where FileName =~ ''iexplore.exe''
+
+  | summarize IeExecutions = count(), LastSeen = max(TimeGenerated) by DeviceId, DeviceName;
+
+  let ieTvm = DeviceTvmSecureConfigurationAssessment
+
+  | where TimeGenerated > ago(14d)
+
+  | where ConfigurationSubcategory has_any (''Browser'', ''Internet Explorer'')
+
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, DeviceName, ConfigurationId
+
+  | where IsApplicable == true
+
+  | summarize NonCompliantBrowserChecks = countif(IsCompliant == false) by DeviceId, DeviceName;
+
+  ieTvm
+
+  | join kind=fullouter ieProcs on DeviceId
+
+  | extend EvidenceRequirement = ''E8-UAH-ML1-02''
+
+  | project EvidenceRequirement, DeviceName = coalesce(DeviceName, DeviceName1), NonCompliantBrowserChecks = coalesce(NonCompliantBrowserChecks,
+  0), IeExecutions = coalesce(IeExecutions, 0), LastSeen
+
+  | order by IeExecutions desc, NonCompliantBrowserChecks desc'
+version: 1.0.0

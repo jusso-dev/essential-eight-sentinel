@@ -1,0 +1,43 @@
+id: 461d4a62-4d19-5f7c-bac1-f8be8922df45
+name: Essential Eight Evidence - E8-RAP-ML2-03 (ML2)
+description: 'Assessment evidence export query for ASD Essential Eight requirement E8-RAP-ML2-03 (Maturity Level 2 - Restrict
+  administrative privileges): Credential Guard, Remote Credential Guard and unique local administrator passwords (Windows
+  LAPS) protect administrative credentials. Reference: https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-overview'
+requiredDataConnectors:
+- connectorId: MicrosoftThreatProtection
+  dataTypes:
+  - DeviceTvmSecureConfigurationAssessment
+- connectorId: AzureActiveDirectory
+  dataTypes:
+  - AuditLogs
+tactics:
+- PrivilegeEscalation
+- Persistence
+relevantTechniques:
+- T1078
+- T1098
+tags:
+- EssentialEight:restrict-admin-privileges
+- MaturityLevel:ML2
+- Requirement:E8-RAP-ML2-03
+- AssessmentEvidence
+query: 'DeviceTvmSecureConfigurationAssessment
+
+  | where TimeGenerated > ago(14d)
+
+  | where ConfigurationSubcategory has_any (''Credential'', ''LAPS'', ''Local Administrator'') or ConfigurationId in (''scid-2003'',
+  ''scid-2090'', ''scid-2091'')
+
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationSubcategory) by DeviceId, DeviceName, ConfigurationId
+
+  | where IsApplicable == true
+
+  | extend EvidenceRequirement = ''E8-RAP-ML2-03''
+
+  | summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant
+  == false) by EvidenceRequirement, ConfigurationId, ConfigurationSubcategory
+
+  | extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)
+
+  | order by CompliancePct asc'
+version: 1.0.0
