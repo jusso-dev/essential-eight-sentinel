@@ -2,6 +2,25 @@
 
 Guides, coverage matrices, architecture diagrams and installation instructions for the `essential-eight-sentinel` solution.
 
+## Guides and references
+
+- [Architecture and data flow diagrams](architecture.md)
+- [Installation guide](install-guide.md)
+- [Essential Eight requirements and Microsoft data sources](requirements-and-data-sources.md)
+- [ISM control coverage matrix](ism-coverage.md)
+- [Assessment evidence hunting queries and export guide](assessment-evidence-export.md)
+
+## Workbook documentation
+
+- [Overview workbook](workbooks/overview.md)
+- [Application control](workbooks/application-control.md)
+- [Patch applications and Patch operating systems](workbooks/patch-applications-and-os.md)
+- [Configure Microsoft Office macro settings](workbooks/office-macros.md)
+- [User application hardening](workbooks/user-application-hardening.md)
+- [Restrict administrative privileges](workbooks/restrict-admin-privileges.md)
+- [Multi-factor authentication](workbooks/multi-factor-authentication.md)
+- [Regular backups](workbooks/regular-backups.md)
+
 ## Official references
 
 - [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model)
