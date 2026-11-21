@@ -1,0 +1,590 @@
+metadata:
+  framework: "ASD Essential Eight Maturity Model"
+  model_release: "November 2023"
+  assessment_guide_release: "November 2023"
+  last_verified: "2026-11-21"
+  disclaimer: >-
+    Independent community mapping. Not produced, endorsed or supported by the
+    Australian Signals Directorate (ASD), the Australian Cyber Security Centre
+    (ACSC) or Microsoft. Always verify against official publications on cyber.gov.au.
+  sources:
+    - title: "ASD Essential Eight Maturity Model"
+      url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    - title: "ASD Essential Eight Assessment Process Guide"
+      url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide"
+    - title: "ASD Information Security Manual (ISM)"
+      url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/ism"
+    - title: "Microsoft Defender XDR advanced hunting schema tables"
+      url: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-schema-tables"
+    - title: "Microsoft Sentinel data connectors reference"
+      url: "https://learn.microsoft.com/en-us/azure/sentinel/data-connectors-reference"
+    - title: "Microsoft Entra ID monitoring and reporting logs"
+      url: "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins"
+    - title: "Microsoft Intune diagnostic logs in Azure Monitor"
+      url: "https://learn.microsoft.com/en-us/mem/intune/fundamentals/review-logs-using-azure-monitor"
+    - title: "Azure Backup reporting and Log Analytics tables"
+      url: "https://learn.microsoft.com/en-us/azure/backup/backup-azure-monitoring-built-in-monitor"
+
+strategies:
+  - id: "application-control"
+    name: "Application control"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-AC-ML1-01"
+        maturity_level: 1
+        summary: "Application control is implemented on workstations to restrict execution of executables, software libraries, scripts, installers, compiled HTML, HTML applications and control panel applets to an organisation-approved set."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "IntuneDeviceComplianceOrg"
+        evidence_notes: "App Control for Business (WDAC) enforcement and audit events appear in DeviceEvents (ActionType startswith 'AppControl'); secure configuration posture is assessed in DeviceTvmSecureConfigurationAssessment."
+        microsoft_docs: "https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/querying-application-control-events-centrally-using-advanced-hunting"
+      - id: "E8-AC-ML1-02"
+        maturity_level: 1
+        summary: "Application control is configured to prevent execution from user profile directories and temporary folders on workstations."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceProcessEvents"
+        evidence_notes: "Process executions from user-writable paths (Users, AppData, Temp, Downloads) can be monitored in DeviceProcessEvents and correlated against AppControl block and audit events in DeviceEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceprocessevents-table"
+      - id: "E8-AC-ML2-01"
+        maturity_level: 2
+        summary: "Application control is implemented on internet-facing servers in addition to workstations."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceInfo"
+          - "DeviceTvmSecureConfigurationAssessment"
+        evidence_notes: "Join DeviceInfo (IsInternetFacing and DeviceType) with DeviceEvents AppControl telemetry to track enforcement versus audit-only coverage on internet-facing servers."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceinfo-table"
+      - id: "E8-AC-ML2-02"
+        maturity_level: 2
+        summary: "Microsoft recommended block rules and vulnerable driver blocklists are implemented to prevent application control bypasses."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceTvmSecureConfigurationAssessment"
+        evidence_notes: "AppControlCodeIntegrityDriverRevoked and AppControlCodeIntegrityImageRevoked events in DeviceEvents plus Defender Vulnerability Management secure configuration checks."
+        microsoft_docs: "https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/microsoft-recommended-block-rules"
+      - id: "E8-AC-ML2-03"
+        maturity_level: 2
+        summary: "Allowed and blocked application control execution events are centrally logged, protected from unauthorised modification and monitored."
+        observability: "partial"
+        tables:
+          - "DeviceEvents"
+          - "AuditLogs"
+        evidence_notes: "Sentinel confirms central ingestion of AppControlCodeIntegrity events and monitors policy changes, while log retention governance and storage immutability require Azure workspace configuration review."
+        microsoft_docs: "https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/event-id-explanations"
+      - id: "E8-AC-ML3-01"
+        maturity_level: 3
+        summary: "Application control is implemented on all workstations and all servers using cryptographic hash, publisher certificate or immutable path rules."
+        observability: "partial"
+        tables:
+          - "DeviceEvents"
+          - "DeviceInfo"
+          - "DeviceTvmSecureConfigurationAssessment"
+        evidence_notes: "Enforcement coverage across all onboarded workstations and servers is observable via DeviceInfo and DeviceEvents; validating rule strength (publisher/hash versus mutable path) also requires XML policy inspection."
+        microsoft_docs: "https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/select-types-of-rules-to-create"
+      - id: "E8-AC-ML3-02"
+        maturity_level: 3
+        summary: "Application control rulesets are validated annually or when significant system changes occur."
+        observability: "not_observable"
+        tables: []
+        evidence_notes: "Governance and periodic policy review records cannot be evidenced solely from Sentinel telemetry; retain manual change and review documentation."
+        microsoft_docs: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide"
+
+  - id: "patch-applications"
+    name: "Patch applications"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-PA-ML1-01"
+        maturity_level: 1
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in online services are applied within 48 hours when assessed as critical by vendors or when working exploits exist."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+          - "DeviceInfo"
+        evidence_notes: "Join DeviceTvmSoftwareVulnerabilities with DeviceTvmSoftwareVulnerabilitiesKB (PublishedDate, IsExploitAvailable, VulnerabilitySeverityLevel) and DeviceInfo (IsInternetFacing) to measure overdue critical or exploited CVEs beyond 48 hours."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table"
+      - id: "E8-PA-ML1-02"
+        maturity_level: 1
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in office productivity suites, web browsers and extensions, email clients, PDF software and security products are applied within two weeks of release, or within 48 hours if an exploit exists."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+        evidence_notes: "Filter SoftwareName/SoftwareVendor for browsers, Office, PDF readers, email clients and security software and compare PublishedDate against 48-hour (exploited) and 14-day thresholds."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilitieskb-table"
+      - id: "E8-PA-ML1-03"
+        maturity_level: 1
+        summary: "Applications that are no longer supported by vendors are removed."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareInventory"
+          - "DeviceTvmSoftwareVulnerabilities"
+        evidence_notes: "EndOfSupportStatus and EndOfSupportDate columns in DeviceTvmSoftwareInventory identify unsupported software across managed endpoints."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwareinventory-table"
+      - id: "E8-PA-ML2-01"
+        maturity_level: 2
+        summary: "A vulnerability scanner with an up-to-date vulnerability database is used at least daily for online services and at least fortnightly for office suites, browsers, email clients, PDF software and security products."
+        observability: "partial"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceInfo"
+        evidence_notes: "Defender Vulnerability Management continuously assesses onboarded endpoints; verifying external scanning of non-onboarded SaaS or network appliances requires supplementary evidence."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-vulnerability-management/defender-vulnerability-management"
+      - id: "E8-PA-ML2-02"
+        maturity_level: 2
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in other applications are applied within one month of release."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+        evidence_notes: "Track non-core application CVEs older than 30 days from PublishedDate in DeviceTvmSoftwareVulnerabilitiesKB."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table"
+      - id: "E8-PA-ML3-01"
+        maturity_level: 3
+        summary: "An automated method of asset discovery is used at least fortnightly to support detection of assets for vulnerability scanning."
+        observability: "partial"
+        tables:
+          - "DeviceInfo"
+          - "DeviceTvmSoftwareInventory"
+        evidence_notes: "Defender for Endpoint device discovery and DeviceInfo OnboardingStatus provide asset inventory telemetry, though network-level scope completeness requires architecture validation."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-endpoint/device-discovery"
+      - id: "E8-PA-ML3-02"
+        maturity_level: 3
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in other applications are applied within two weeks of release, or within 48 hours if working exploits exist."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+        evidence_notes: "Measure all third-party and line-of-business application CVEs against ML3 thresholds (48 hours for exploited/critical, 14 days for all other vulnerabilities)."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilitieskb-table"
+
+  - id: "configure-office-macros"
+    name: "Configure Microsoft Office macro settings"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-OM-ML1-01"
+        maturity_level: 1
+        summary: "Microsoft Office macros are disabled for users that do not have a demonstrated business requirement."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "IntuneDeviceComplianceOrg"
+        evidence_notes: "Defender Vulnerability Management security configuration assessments and Intune configuration profiles report macro policy compliance per device."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsecureconfigurationassessment-table"
+      - id: "E8-OM-ML1-02"
+        maturity_level: 1
+        summary: "Microsoft Office macros in files originating from the internet are blocked."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceRegistryEvents"
+          - "DeviceEvents"
+        evidence_notes: "Check blockcontentexecutionfrominternet registry policy state, Defender TVM configuration assessment and ASR macro block events in DeviceEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/microsoft-365-apps/security/internet-macros-blocked"
+      - id: "E8-OM-ML1-03"
+        maturity_level: 1
+        summary: "Microsoft Office macro antivirus scanning is enabled and macro security settings cannot be changed by users."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceRegistryEvents"
+        evidence_notes: "Monitor Office macro policy registry keys under HKLM/HKCU Software\\Policies\\Microsoft\\Office and TVM compliance checks."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference"
+      - id: "E8-OM-ML2-01"
+        maturity_level: 2
+        summary: "Microsoft Office macros are only allowed to execute from trusted locations with write access limited to administrators, or when digitally signed by a trusted publisher."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceRegistryEvents"
+          - "DeviceEvents"
+        evidence_notes: "Evaluate vbawarnings and trusted location registry keys alongside TVM configuration assessments."
+        microsoft_docs: "https://learn.microsoft.com/en-us/microsoft-365-apps/security/macros-in-office"
+      - id: "E8-OM-ML2-02"
+        maturity_level: 2
+        summary: "Microsoft Office macros are blocked from making Win32 API calls and allowed/blocked macro executions are centrally logged."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceProcessEvents"
+          - "DeviceTvmSecureConfigurationAssessment"
+        evidence_notes: "ASR rule 92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b generates AsrOfficeMacroWin32ApiCallsBlocked and AsrOfficeMacroWin32ApiCallsAudited events in DeviceEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference"
+      - id: "E8-OM-ML3-01"
+        maturity_level: 3
+        summary: "Only Microsoft Office macros signed by trusted publishers are allowed, certificate revocation is checked and users cannot add trusted publishers."
+        observability: "partial"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceRegistryEvents"
+          - "DeviceEvents"
+        evidence_notes: "Policy enforcement and modification attempts are observable via TVM and DeviceRegistryEvents; publisher list governance requires administrative review."
+        microsoft_docs: "https://learn.microsoft.com/en-us/microsoft-365-apps/security/macros-in-office"
+      - id: "E8-OM-ML3-02"
+        maturity_level: 3
+        summary: "Microsoft Office macros are vetted to ensure they are free of malicious code prior to digital signing."
+        observability: "not_observable"
+        tables: []
+        evidence_notes: "Human code review and signing workflow approvals are procedural controls that must be evidenced outside Sentinel."
+        microsoft_docs: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide"
+
+  - id: "user-application-hardening"
+    name: "User application hardening"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-UAH-ML1-01"
+        maturity_level: 1
+        summary: "Web browsers are configured to block or disable Java from the internet and block web advertisements."
+        observability: "partial"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceTvmSoftwareInventory"
+          - "DeviceRegistryEvents"
+        evidence_notes: "Browser policy posture and Java runtime presence are visible in TVM tables; third-party ad-blocking extension enforcement may also require Intune policy export."
+        microsoft_docs: "https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies"
+      - id: "E8-UAH-ML1-02"
+        maturity_level: 1
+        summary: "Internet Explorer 11 is disabled or removed, and web browser security settings cannot be changed by users."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceTvmSoftwareInventory"
+          - "DeviceProcessEvents"
+        evidence_notes: "Detect iexplore.exe executions in DeviceProcessEvents and IE11 feature/browser policy compliance in DeviceTvmSecureConfigurationAssessment."
+        microsoft_docs: "https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support"
+      - id: "E8-UAH-ML2-01"
+        maturity_level: 2
+        summary: "Microsoft Office, web browsers and PDF software are prevented from creating child processes, creating executable content and injecting code into other processes."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceTvmSecureConfigurationAssessment"
+        evidence_notes: "Defender Attack Surface Reduction (ASR) rules emit Asr*Blocked and Asr*Audited events in DeviceEvents and posture records in DeviceTvmSecureConfigurationAssessment."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference"
+      - id: "E8-UAH-ML2-02"
+        maturity_level: 2
+        summary: ".NET Framework 3.5 (including .NET 2.0 and 3.0) and Windows PowerShell 2.0 are disabled or removed."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceTvmSoftwareInventory"
+          - "DeviceProcessEvents"
+        evidence_notes: "Monitor legacy .NET Framework installations and PowerShell v2 invocations (-version 2 / -v 2) across DeviceTvmSoftwareInventory, DeviceTvmSecureConfigurationAssessment and DeviceProcessEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsecureconfigurationassessment-table"
+      - id: "E8-UAH-ML2-03"
+        maturity_level: 2
+        summary: "PowerShell is configured to use Constrained Language Mode and PowerShell execution events are centrally logged."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceRegistryEvents"
+          - "SecurityEvent"
+        evidence_notes: "PowerShellCommand events in DeviceEvents, __PSLockdownPolicy registry settings in DeviceRegistryEvents and Event ID 4104 in SecurityEvent."
+        microsoft_docs: "https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes"
+      - id: "E8-UAH-ML3-01"
+        maturity_level: 3
+        summary: "Hardened browser, Office, PDF and scripting configurations are centrally enforced and protected from user modification, with blocked hardening events monitored."
+        observability: "observable"
+        tables:
+          - "DeviceEvents"
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "DeviceRegistryEvents"
+        evidence_notes: "ASR rules in block mode (not audit), TVM exploit guard / browser hardening compliance and tamper detection in DeviceRegistryEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction"
+
+  - id: "restrict-admin-privileges"
+    name: "Restrict administrative privileges"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-RAP-ML1-01"
+        maturity_level: 1
+        summary: "Requests for privileged access to systems and applications are validated when first requested."
+        observability: "not_observable"
+        tables: []
+        evidence_notes: "Initial business approval and identity vetting tickets live in ITSM or HR systems and are not directly verifiable from Sentinel logs alone."
+        microsoft_docs: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide"
+      - id: "E8-RAP-ML1-02"
+        maturity_level: 1
+        summary: "Privileged accounts (excluding local administrator accounts) are prevented from accessing the internet, email and web services."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "IdentityInfo"
+          - "OfficeActivity"
+          - "DeviceNetworkEvents"
+        evidence_notes: "Correlate privileged roles in IdentityInfo against SigninLogs (Exchange Online, Outlook, Teams, SharePoint, browser web access) and DeviceNetworkEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/sentinel/ueba-reference"
+      - id: "E8-RAP-ML1-03"
+        maturity_level: 1
+        summary: "Privileged users use separate privileged and unprivileged accounts, and unprivileged accounts cannot log on to privileged environments."
+        observability: "partial"
+        tables:
+          - "SigninLogs"
+          - "DeviceLogonEvents"
+          - "IdentityInfo"
+        evidence_notes: "Identify privileged accounts performing standard user workloads in SigninLogs and unexpected logons on Tier 0 servers in DeviceLogonEvents; account-to-person pairing also requires directory review."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/best-practices"
+      - id: "E8-RAP-ML2-01"
+        maturity_level: 2
+        summary: "Privileged access is automatically disabled after 12 months unless revalidated, or after 45 days of inactivity."
+        observability: "partial"
+        tables:
+          - "SigninLogs"
+          - "AuditLogs"
+          - "IdentityInfo"
+        evidence_notes: "Dormant privileged accounts with no sign-in for 45 days are observable via SigninLogs and IdentityInfo; access review completion records appear partially in AuditLogs."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/id-governance/access-reviews-overview"
+      - id: "E8-RAP-ML2-02"
+        maturity_level: 2
+        summary: "Privileged access uses just-in-time elevation (such as Entra PIM) rather than standing Global Administrator or directory role assignments."
+        observability: "observable"
+        tables:
+          - "AuditLogs"
+          - "IdentityInfo"
+        evidence_notes: "Track permanent versus eligible role assignments and PIM activation events in AuditLogs (Category == 'RoleManagement')."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure"
+      - id: "E8-RAP-ML2-03"
+        maturity_level: 2
+        summary: "Credential Guard, Remote Credential Guard and unique local administrator passwords (Windows LAPS) protect administrative credentials."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "AuditLogs"
+        evidence_notes: "Defender TVM tracks Credential Guard and LAPS posture; Entra AuditLogs tracks Windows LAPS password access and rotations."
+        microsoft_docs: "https://learn.microsoft.com/en-us/windows-server/identity/laps/laps-overview"
+      - id: "E8-RAP-ML3-01"
+        maturity_level: 3
+        summary: "Just-in-time privileged activations require documented justification, approval and time-bound expiry, with all privileged sessions centrally logged."
+        observability: "observable"
+        tables:
+          - "AuditLogs"
+          - "SigninLogs"
+        evidence_notes: "Inspect PIM activation records in AuditLogs for missing justification, self-approval or excessive duration."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-how-to-use-audit-log"
+      - id: "E8-RAP-ML3-02"
+        maturity_level: 3
+        summary: "Privileged administrative tasks are performed from hardened Privileged Access Workstations (PAWs) using phishing-resistant MFA and hardware-backed memory integrity."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "IdentityInfo"
+          - "DeviceTvmSecureConfigurationAssessment"
+          - "IntuneDevices"
+        evidence_notes: "Correlate privileged sign-ins with AuthenticationRequirement, AuthenticationDetails (phishing-resistant methods) and DeviceDetail compliance/PAW device groups."
+        microsoft_docs: "https://learn.microsoft.com/en-us/security/privileged-access-workstations/privileged-access-devices"
+
+  - id: "patch-operating-systems"
+    name: "Patch operating systems"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-POS-ML1-01"
+        maturity_level: 1
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in operating systems of internet-facing services are applied within 48 hours when assessed as critical by vendors or when working exploits exist."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+          - "DeviceInfo"
+        evidence_notes: "Filter OS CVEs on internet-facing devices (DeviceInfo.IsInternetFacing == true) where severity is Critical or IsExploitAvailable == true and age exceeds 48 hours."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table"
+      - id: "E8-POS-ML1-02"
+        maturity_level: 1
+        summary: "Patches, updates or vendor mitigations for vulnerabilities in operating systems of workstations, servers and network devices are applied within one month of release, or within 48 hours if an exploit exists."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+          - "DeviceInfo"
+        evidence_notes: "Track OS vulnerabilities across workstations and servers against 48-hour (exploited) and 30-day thresholds using Defender Vulnerability Management tables."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilitieskb-table"
+      - id: "E8-POS-ML1-03"
+        maturity_level: 1
+        summary: "Operating systems that are no longer supported by vendors are replaced."
+        observability: "observable"
+        tables:
+          - "DeviceInfo"
+          - "IntuneDevices"
+          - "DeviceTvmSoftwareVulnerabilities"
+        evidence_notes: "Detect end-of-life OS builds (such as Windows 7, Windows Server 2012 R2, unsupported Windows 10/11 builds) from OSPlatform, OSVersion and OSVersionInfo in DeviceInfo and IntuneDevices."
+        microsoft_docs: "https://learn.microsoft.com/en-us/lifecycle/products/"
+      - id: "E8-POS-ML2-01"
+        maturity_level: 2
+        summary: "A vulnerability scanner is used at least daily for internet-facing operating systems and at least fortnightly for workstations, servers and network devices."
+        observability: "partial"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceInfo"
+        evidence_notes: "Defender TVM provides continuous OS assessment on onboarded hosts; unmanaged network appliances and hypervisors require separate scanner confirmation."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-vulnerability-management/defender-vulnerability-management"
+      - id: "E8-POS-ML2-02"
+        maturity_level: 2
+        summary: "Patches, updates or vendor mitigations for non-critical vulnerabilities in operating systems of internet-facing services are applied within two weeks of release."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+          - "DeviceInfo"
+        evidence_notes: "Measure non-critical OS CVEs on IsInternetFacing devices exceeding 14 days since PublishedDate."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilities-table"
+      - id: "E8-POS-ML3-01"
+        maturity_level: 3
+        summary: "Automated asset discovery runs at least fortnightly and operating system patches for workstations, servers and network devices are applied within two weeks of release, or 48 hours if critical or exploited."
+        observability: "observable"
+        tables:
+          - "DeviceTvmSoftwareVulnerabilities"
+          - "DeviceTvmSoftwareVulnerabilitiesKB"
+          - "DeviceInfo"
+        evidence_notes: "Evaluate all OS CVEs against ML3 timeframes (48 hours critical/exploited, 14 days all others) across DeviceGroup filters."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsoftwarevulnerabilitieskb-table"
+      - id: "E8-POS-ML3-02"
+        maturity_level: 3
+        summary: "Unsupported operating systems, hypervisors and firmware are eliminated from the environment."
+        observability: "partial"
+        tables:
+          - "DeviceInfo"
+          - "IntuneDevices"
+          - "DeviceTvmSoftwareVulnerabilities"
+        evidence_notes: "Host OS lifecycle is observable via DeviceInfo and IntuneDevices; out-of-band hypervisor and network switch firmware support status typically requires vendor inventory checks."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-deviceinfo-table"
+
+  - id: "multi-factor-authentication"
+    name: "Multi-factor authentication"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-MFA-ML1-01"
+        maturity_level: 1
+        summary: "Multi-factor authentication is used to authenticate users to their organisation's online services."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "AADNonInteractiveUserSignInLogs"
+        evidence_notes: "Measure AuthenticationRequirement == 'multiFactorAuthentication' versus 'singleFactorAuthentication' across successful interactive and non-interactive sign-ins."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins"
+      - id: "E8-MFA-ML1-02"
+        maturity_level: 1
+        summary: "Multi-factor authentication is used to authenticate users to third-party online services that process, store or communicate sensitive data."
+        observability: "partial"
+        tables:
+          - "SigninLogs"
+          - "CloudAppEvents"
+        evidence_notes: "Federated SaaS applications signed in via Entra ID appear in SigninLogs and CloudAppEvents; non-federated shadow SaaS services require Cloud Discovery or SaaS inventory review."
+        microsoft_docs: "https://learn.microsoft.com/en-us/defender-cloud-apps/what-is-defender-for-cloud-apps"
+      - id: "E8-MFA-ML1-03"
+        maturity_level: 1
+        summary: "Legacy authentication protocols that do not support MFA are blocked."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "AADNonInteractiveUserSignInLogs"
+        evidence_notes: "Detect successful sign-ins where ClientAppUsed is IMAP4, POP3, SMTP, ActiveSync, Exchange Web Services, Autodiscover, MAPI Over HTTP or Other clients."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/conditional-access/block-legacy-authentication"
+      - id: "E8-MFA-ML2-01"
+        maturity_level: 2
+        summary: "Phishing-resistant MFA (such as FIDO2 security keys, Windows Hello for Business or certificate-based authentication) is used for online services and important data repositories."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "AuditLogs"
+        evidence_notes: "Parse AuthenticationDetails in SigninLogs to distinguish phishing-resistant methods (FIDO2, Windows Hello for Business, X.509 CBA) from phishable methods (SMS, voice, OTP, push)."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths"
+      - id: "E8-MFA-ML2-02"
+        maturity_level: 2
+        summary: "Phishing-resistant MFA is enforced for all privileged users authenticating to systems and administrative portals."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "IdentityInfo"
+          - "AuditLogs"
+        evidence_notes: "Join IdentityInfo privileged role holders with SigninLogs AuthenticationDetails to identify privileged sign-ins using weak or single-factor authentication."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/conditional-access/howto-conditional-access-policy-admin-mfa"
+      - id: "E8-MFA-ML2-03"
+        maturity_level: 2
+        summary: "Successful and unsuccessful MFA events and Conditional Access policy changes (including new exclusions) are centrally logged and monitored."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "AuditLogs"
+        evidence_notes: "Monitor AuditLogs for Conditional Access policy updates, deletions or additions to excludeUsers/excludeGroups/excludeRoles."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-audit-logs"
+      - id: "E8-MFA-ML3-01"
+        maturity_level: 3
+        summary: "Phishing-resistant MFA is enforced for all users authenticating to workstations, servers, online services and data repositories with no unapproved exclusions."
+        observability: "observable"
+        tables:
+          - "SigninLogs"
+          - "AuditLogs"
+          - "DeviceLogonEvents"
+        evidence_notes: "Track tenant-wide phishing-resistant MFA percentage in SigninLogs, Conditional Access exclusions in AuditLogs and workstation strong authentication in DeviceLogonEvents."
+        microsoft_docs: "https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths"
+
+  - id: "regular-backups"
+    name: "Regular backups"
+    source_url: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model"
+    requirements:
+      - id: "E8-RB-ML1-01"
+        maturity_level: 1
+        summary: "Backups of important data, software and configuration settings are performed and retained in a coordinated and resilient manner."
+        observability: "partial"
+        tables:
+          - "AddonAzureBackupJobs"
+          - "AddonAzureBackupProtectedInstance"
+          - "AzureActivity"
+        evidence_notes: "Azure Backup jobs and protected instances are observable when Recovery Services / Backup vault diagnostics flow to Log Analytics; Microsoft 365 Backup and third-party SaaS or on-premises backups may not emit native Sentinel tables."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/backup/backup-azure-monitoring-built-in-monitor"
+      - id: "E8-RB-ML1-02"
+        maturity_level: 1
+        summary: "Restoration of systems, software and important data from backups is tested in a coordinated manner."
+        observability: "partial"
+        tables:
+          - "AddonAzureBackupJobs"
+        evidence_notes: "Azure Backup restore jobs (JobOperation == 'Restore') appear in AddonAzureBackupJobs, but validating restored application integrity and business recovery objectives requires manual test sign-off."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/addonazurebackupjobs"
+      - id: "E8-RB-ML1-03"
+        maturity_level: 1
+        summary: "Unprivileged accounts are prevented from accessing, modifying or deleting backups."
+        observability: "partial"
+        tables:
+          - "AzureActivity"
+          - "AuditLogs"
+        evidence_notes: "AzureActivity records delete or disable-backup actions against vaults, while full RBAC permission boundaries require periodic Azure IAM and backup platform audit."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/backup/security-overview"
+      - id: "E8-RB-ML2-01"
+        maturity_level: 2
+        summary: "Privileged accounts (excluding backup administrator accounts) are prevented from accessing, modifying or deleting backups."
+        observability: "partial"
+        tables:
+          - "AzureActivity"
+          - "AuditLogs"
+          - "SigninLogs"
+        evidence_notes: "Role separation and unauthorised vault operations can be monitored in AzureActivity and AuditLogs, but complete privilege boundary verification requires RBAC review across all backup repositories."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/backup/backup-rbac-rs-vault"
+      - id: "E8-RB-ML2-02"
+        maturity_level: 2
+        summary: "Restoration from backups is tested regularly (at least quarterly or following major infrastructure changes)."
+        observability: "partial"
+        tables:
+          - "AddonAzureBackupJobs"
+        evidence_notes: "Restore job cadence for Azure Backup workloads is observable via AddonAzureBackupJobs; non-Azure workloads require documented restoration test reports."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/azure-monitor/reference/tables/addonazurebackupjobs"
+      - id: "E8-RB-ML3-01"
+        maturity_level: 3
+        summary: "Backups are stored offline or in immutable storage so that even backup administrators cannot modify or delete backups during retention periods."
+        observability: "partial"
+        tables:
+          - "AzureActivity"
+          - "AddonAzureBackupProtectedInstance"
+        evidence_notes: "Azure Backup vault immutability, soft delete and Multi-User Authorization (MUA) change events appear in AzureActivity, while confirming locked immutability state across all vaults and offline copies requires Azure Resource Graph or manual evidence."
+        microsoft_docs: "https://learn.microsoft.com/en-us/azure/backup/backup-azure-immutable-vault-concept"
+      - id: "E8-RB-ML3-02"
+        maturity_level: 3
+        summary: "Full disaster recovery restoration exercises (including identity and bare-metal recovery) are conducted and formally evidenced."
+        observability: "not_observable"
+        tables: []
+        evidence_notes: "End-to-end disaster recovery test reports, RPO/RTO validation and offline media custody records are manual assessment artefacts."
+        microsoft_docs: "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide"
