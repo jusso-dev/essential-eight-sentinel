@@ -1,0 +1,39 @@
+id: 8e4d1b6f-5a7c-4d0e-9f50-4b2c8d0e5f11
+name: "Essential Eight Hunt - Office Macro Execution from Internet-Originated Files"
+description: |
+  Hunts for macro-enabled Microsoft Office files (.docm, .xlsm, .pptm, .xlsb, .dotm, .xltm) opened
+  from internet download locations (Downloads, INetCache, Content.Outlook) or carrying Mark-of-the-Web
+  activity, correlated with Office process launches and ASR events. Supports E8-OM-ML1-02 and E8-OM-ML2-02.
+  Reference: https://learn.microsoft.com/en-us/microsoft-365-apps/security/internet-macros-blocked
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceFileEvents
+      - DeviceProcessEvents
+tactics:
+  - Execution
+  - InitialAccess
+relevantTechniques:
+  - T1204.002
+  - T1566.001
+tags:
+  - EssentialEight:ConfigureOfficeMacros
+  - Requirement:E8-OM-ML1-02
+query: |
+  let macroExtensions = dynamic(['.docm', '.xlsm', '.pptm', '.xlsb', '.dotm', '.xltm', '.xlam', '.ppam']);
+  let internetFiles = DeviceFileEvents
+  | where TimeGenerated > ago(14d)
+  | where FolderPath has_any ('\\Downloads\\', '\\INetCache\\', '\\Content.Outlook\\', '\\Temp\\')
+  | where FileName has_any (macroExtensions)
+  | project FileEventTime = TimeGenerated, DeviceId, DeviceName, MacroFileName = FileName, FolderPath, FileOriginUrl, InitiatingProcessAccountName;
+  let officeProcs = DeviceProcessEvents
+  | where TimeGenerated > ago(14d)
+  | where FileName in~ ('winword.exe', 'excel.exe', 'powerpnt.exe', 'msaccess.exe')
+  | project ProcTime = TimeGenerated, DeviceId, OfficeApp = FileName, ProcessCommandLine, AccountName;
+  internetFiles
+  | join kind=inner officeProcs on DeviceId
+  | where ProcTime between (FileEventTime .. (FileEventTime + 30m))
+  | where ProcessCommandLine has MacroFileName or isempty(ProcessCommandLine) == false
+  | project ProcTime, DeviceName, AccountName, OfficeApp, MacroFileName, FolderPath, FileOriginUrl, ProcessCommandLine
+  | order by ProcTime desc
+version: 1.0.0

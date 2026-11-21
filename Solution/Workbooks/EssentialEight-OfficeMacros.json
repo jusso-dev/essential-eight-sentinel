@@ -1,0 +1,140 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: Configure Microsoft Office macro settings\n\nMeasures Microsoft Office macro policy compliance using Microsoft Defender Vulnerability Management (`DeviceTvmSecureConfigurationAssessment`), Microsoft Intune (`IntuneDeviceComplianceOrg`), and runtime macro execution and tampering telemetry (`DeviceEvents`, `DeviceProcessEvents`, `DeviceRegistryEvents`).\n\n**ASD Essential Eight Maturity Model (November 2023) summary:**\n- **ML1**: Macros disabled for users without a business requirement; macros from the internet blocked; antivirus scanning enabled; users cannot change macro settings.\n- **ML2**: Macros only run from admin-controlled trusted locations or when digitally signed by trusted publishers; Win32 API calls from macros blocked; macro events centrally logged.\n- **ML3**: Only vetted, digitally signed macros from trusted publishers are permitted with certificate revocation checks and locked publisher lists.\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Microsoft 365 Apps macro blocking documentation](https://learn.microsoft.com/en-us/microsoft-365-apps/security/internet-macros-blocked)."
+      },
+      "name": "macros-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-om-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-om-device-group",
+            "version": "KqlParameterItem/1.0",
+            "name": "DeviceGroup",
+            "label": "Device group",
+            "type": 2,
+            "isRequired": false,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "DeviceInfo\n| where TimeGenerated > ago(30d)\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| distinct GroupName\n| order by GroupName asc",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*"
+            },
+            "queryType": 0,
+            "value": [
+              "value::all"
+            ]
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "macros-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nlet tvmMacro = DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has_any ('Office', 'Macro', 'ASR') or ConfigurationId in ('scid-2501', 'scid-2502', 'scid-2503', 'scid-2504', 'scid-2505', 'scid-2016')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| join kind=inner devices on DeviceId;\nlet kpiTvm = tvmMacro | summarize Metric = 'Office Macro Policy Compliance % (TVM)', Value = round(100.0 * countif(IsCompliant == true) / max_of(count(), 1), 1);\nlet kpiWin32Block = DeviceEvents | where TimeGenerated > ago({TimeRange}) | where ActionType == 'AsrOfficeMacroWin32ApiCallsBlocked' | join kind=inner devices on DeviceId | summarize Metric = 'Win32 API Macro Calls Blocked (ML2)', Value = toreal(count());\nlet kpiWin32Audit = DeviceEvents | where TimeGenerated > ago({TimeRange}) | where ActionType == 'AsrOfficeMacroWin32ApiCallsAudited' | join kind=inner devices on DeviceId | summarize Metric = 'Win32 API Macro Calls Audited (Needs Block)', Value = toreal(count());\nlet kpiRegTamper = DeviceRegistryEvents | where TimeGenerated > ago({TimeRange}) | where RegistryKey has '\\\\Office\\\\' and RegistryValueName in~ ('blockcontentexecutionfrominternet', 'vbawarnings', 'extensionhardening') | join kind=inner devices on DeviceId | summarize Metric = 'Office Macro Registry Changes', Value = toreal(count());\nunion kpiTvm, kpiWin32Block, kpiWin32Audit, kpiRegTamper",
+        "size": 4,
+        "title": "Microsoft Office macro posture KPI summary",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12
+          },
+          "showBorder": true
+        }
+      },
+      "name": "macros-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has_any ('Office', 'Macro', 'ASR') or ConfigurationId in ('scid-2501', 'scid-2502', 'scid-2503', 'scid-2504', 'scid-2505', 'scid-2016')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationCategory, ConfigurationSubcategory) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| join kind=inner devices on DeviceId\n| summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant == false) by ConfigurationId, ConfigurationSubcategory, GroupName\n| extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)\n| order by CompliancePct asc",
+        "size": 0,
+        "title": "Defender TVM Office macro configuration compliance by device group",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "macros-tvm-compliance"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "IntuneDeviceComplianceOrg\n| where TimeGenerated > ago(14d)\n| summarize arg_max(TimeGenerated, ComplianceState, OS, OSVersion) by DeviceId, DeviceName\n| summarize Devices = dcount(DeviceId) by OS, ComplianceState\n| order by Devices desc",
+        "size": 0,
+        "title": "Intune device compliance overview for policy enforcement",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "macros-intune-compliance"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType in ('AsrOfficeMacroWin32ApiCallsBlocked', 'AsrOfficeMacroWin32ApiCallsAudited', 'AsrOfficeChildProcessBlocked', 'AsrOfficeChildProcessAudited', 'AsrOfficeExecutableContentBlocked', 'AsrOfficeExecutableContentAudited')\n| join kind=inner devices on DeviceId\n| summarize Events = count(), Devices = dcount(DeviceId), SampleFiles = make_set(FileName, 5), LastSeen = max(TimeGenerated) by ActionType, GroupName, InitiatingProcessFileName\n| order by Events desc\n| take 100",
+        "size": 0,
+        "title": "Office macro ASR blocks and audits (Win32 API calls, child processes, executable content)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "macros-asr-events"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceProcessEvents\n| where TimeGenerated > ago({TimeRange})\n| where InitiatingProcessFileName in~ ('winword.exe', 'excel.exe', 'powerpnt.exe', 'msaccess.exe', 'visio.exe', 'mspub.exe')\n| where FileName in~ ('cmd.exe', 'powershell.exe', 'pwsh.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe', 'rundll32.exe', 'regsvr32.exe', 'certutil.exe', 'bitsadmin.exe')\n| join kind=inner devices on DeviceId\n| project TimeGenerated, DeviceName, GroupName, AccountName, InitiatingProcessFileName, InitiatingProcessCommandLine, FileName, ProcessCommandLine\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Suspicious child processes spawned by Microsoft Office applications",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "macros-office-child-procs"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

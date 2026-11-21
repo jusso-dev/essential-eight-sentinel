@@ -1,0 +1,37 @@
+id: 8e4d1b6f-5a7c-4d0e-9f50-4b2c8d0e5f12
+name: "Essential Eight Hunt - Office Macro Policy Gaps and Audited Win32 API Calls"
+description: |
+  Exports per-device Office macro policy non-compliance from DeviceTvmSecureConfigurationAssessment
+  together with audited or blocked Win32 API macro call events from DeviceEvents for assessment
+  evidence collection. Supports E8-OM-ML1-01, E8-OM-ML2-01 and E8-OM-ML2-02.
+  Reference: https://learn.microsoft.com/en-us/defender-xdr/advanced-hunting-devicetvmsecureconfigurationassessment-table
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceTvmSecureConfigurationAssessment
+      - DeviceEvents
+tactics:
+  - Execution
+  - DefenseEvasion
+relevantTechniques:
+  - T1204.002
+tags:
+  - EssentialEight:ConfigureOfficeMacros
+  - Requirement:E8-OM-ML1-01
+  - Requirement:E8-OM-ML2-02
+query: |
+  let nonCompliant = DeviceTvmSecureConfigurationAssessment
+  | where TimeGenerated > ago(14d)
+  | where ConfigurationSubcategory has_any ('Office', 'Macro') or ConfigurationId in ('scid-2501', 'scid-2502', 'scid-2503', 'scid-2504', 'scid-2505', 'scid-2016')
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationSubcategory) by DeviceId, DeviceName, ConfigurationId
+  | where IsApplicable == true and IsCompliant == false
+  | summarize NonCompliantChecks = make_set(ConfigurationId, 20), NonCompliantCount = count() by DeviceId, DeviceName;
+  let win32Events = DeviceEvents
+  | where TimeGenerated > ago(14d)
+  | where ActionType in ('AsrOfficeMacroWin32ApiCallsAudited', 'AsrOfficeMacroWin32ApiCallsBlocked')
+  | summarize AuditedCount = countif(ActionType == 'AsrOfficeMacroWin32ApiCallsAudited'), BlockedCount = countif(ActionType == 'AsrOfficeMacroWin32ApiCallsBlocked') by DeviceId;
+  nonCompliant
+  | join kind=leftouter win32Events on DeviceId
+  | project DeviceName, NonCompliantCount, NonCompliantChecks, AuditedWin32ApiCalls = coalesce(AuditedCount, 0), BlockedWin32ApiCalls = coalesce(BlockedCount, 0)
+  | order by NonCompliantCount desc, AuditedWin32ApiCalls desc
+version: 1.0.0
