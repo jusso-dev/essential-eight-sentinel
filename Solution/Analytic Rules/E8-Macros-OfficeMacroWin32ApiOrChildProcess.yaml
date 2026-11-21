@@ -1,0 +1,51 @@
+id: 8e4d1b6f-5a7c-4d0e-9f50-4b2c8d0e5f02
+name: "Essential Eight - Office Macro Win32 API Call or Suspicious Child Process"
+description: |
+  Detects Microsoft Office macros attempting Win32 API calls (ASR rule 92e97fa1-2edf-4476-bdd6-9dd0b4dddc7b)
+  or spawning command-line/scripting interpreters from Office applications. Maps to ASD Essential Eight
+  requirement E8-OM-ML2-02.
+  Reference: https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceEvents
+      - DeviceProcessEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Execution
+  - DefenseEvasion
+relevantTechniques:
+  - T1204.002
+  - T1059
+tags:
+  - EssentialEight:ConfigureOfficeMacros
+  - MaturityLevel:ML2
+  - Requirement:E8-OM-ML2-02
+query: |
+  let asrWin32 = DeviceEvents
+  | where ActionType in ('AsrOfficeMacroWin32ApiCallsBlocked', 'AsrOfficeMacroWin32ApiCallsAudited')
+  | project TimeGenerated, DeviceName, AccountName = InitiatingProcessAccountName, SignalType = ActionType, ParentProcess = InitiatingProcessFileName, Detail = strcat(FolderPath, '\\', FileName);
+  let childProcs = DeviceProcessEvents
+  | where InitiatingProcessFileName in~ ('winword.exe', 'excel.exe', 'powerpnt.exe', 'msaccess.exe', 'visio.exe')
+  | where FileName in~ ('cmd.exe', 'powershell.exe', 'pwsh.exe', 'wscript.exe', 'cscript.exe', 'mshta.exe', 'rundll32.exe', 'regsvr32.exe', 'certutil.exe')
+  | project TimeGenerated, DeviceName, AccountName, SignalType = 'OfficeSuspiciousChildProcess', ParentProcess = InitiatingProcessFileName, Detail = ProcessCommandLine;
+  union asrWin32, childProcs
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: Name
+        columnName: AccountName
+customDetails:
+  SignalType: SignalType
+  ParentProcess: ParentProcess
+version: 1.0.0
+kind: Scheduled

@@ -1,0 +1,57 @@
+id: 8e4d1b6f-5a7c-4d0e-9f50-4b2c8d0e5f01
+name: "Essential Eight - Microsoft Office Macro Policy Weakened via Registry"
+description: |
+  Detects registry modifications weakening Microsoft Office macro security controls, including
+  enabling macros from the internet (blockcontentexecutionfrominternet = 0), enabling all macros
+  (vbawarnings = 1 or 2), or adding user-level Trusted Locations or Trusted Publishers.
+  Maps to ASD Essential Eight requirements E8-OM-ML1-02, E8-OM-ML1-03 and E8-OM-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/microsoft-365-apps/security/internet-macros-blocked
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceRegistryEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+  - Execution
+relevantTechniques:
+  - T1112
+  - T1562
+tags:
+  - EssentialEight:ConfigureOfficeMacros
+  - MaturityLevel:ML1
+  - MaturityLevel:ML2
+  - MaturityLevel:ML3
+  - Requirement:E8-OM-ML1-02
+  - Requirement:E8-OM-ML1-03
+query: |
+  DeviceRegistryEvents
+  | where ActionType in ('RegistryValueSet', 'RegistryKeyCreated', 'RegistryValueDeleted')
+  | where RegistryKey has '\\Software\\' and RegistryKey has '\\Office\\'
+  | where (RegistryValueName =~ 'blockcontentexecutionfrominternet' and RegistryValueData == '0')
+      or (RegistryValueName =~ 'vbawarnings' and RegistryValueData in ('1', '2'))
+      or (RegistryKey has_any ('\\Security\\Trusted Locations', '\\Security\\Trusted Publishers') and ActionType in ('RegistryValueSet', 'RegistryKeyCreated'))
+  | project TimeGenerated, DeviceName, ActionType, RegistryKey, RegistryValueName, RegistryValueData, InitiatingProcessAccountName, InitiatingProcessFileName
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: Name
+        columnName: InitiatingProcessAccountName
+  - entityType: RegistryKey
+    fieldMappings:
+      - identifier: Key
+        columnName: RegistryKey
+customDetails:
+  RegistryValueName: RegistryValueName
+  RegistryValueData: RegistryValueData
+version: 1.0.0
+kind: Scheduled
