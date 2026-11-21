@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jusso-dev/essential-eight-sentinel/schemas/analytic_rule.schema.json",
+  "title": "Microsoft Sentinel Scheduled Analytic Rule",
+  "description": "Validates Microsoft Sentinel Content hub analytics rule YAML templates.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "severity",
+    "status",
+    "requiredDataConnectors",
+    "queryFrequency",
+    "queryPeriod",
+    "triggerOperator",
+    "triggerThreshold",
+    "tactics",
+    "relevantTechniques",
+    "query",
+    "version",
+    "kind"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["Informational", "Low", "Medium", "High"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Available", "Deprecated"]
+    },
+    "requiredDataConnectors": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["connectorId", "dataTypes"],
+        "properties": {
+          "connectorId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataTypes": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "queryFrequency": {
+      "type": "string",
+      "pattern": "^[0-9]+[mhd]$|^P(T?[0-9]+[HMSD])+$"
+    },
+    "queryPeriod": {
+      "type": "string",
+      "pattern": "^[0-9]+[mhd]$|^P(T?[0-9]+[HMSD])+$"
+    },
+    "triggerOperator": {
+      "type": "string",
+      "enum": ["gt", "lt", "eq", "ne", "GreaterThan", "LessThan", "Equal", "NotEqual"]
+    },
+    "triggerThreshold": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tactics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "Reconnaissance",
+          "ResourceDevelopment",
+          "InitialAccess",
+          "Execution",
+          "Persistence",
+          "PrivilegeEscalation",
+          "DefenseEvasion",
+          "CredentialAccess",
+          "Discovery",
+          "LateralMovement",
+          "Collection",
+          "CommandAndControl",
+          "Exfiltration",
+          "Impact",
+          "ImpairProcessControl",
+          "InhibitResponseFunction"
+        ]
+      }
+    },
+    "relevantTechniques": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "object" }
+        ]
+      }
+    },
+    "query": {
+      "type": "string",
+      "minLength": 10
+    },
+    "entityMappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["entityType", "fieldMappings"],
+        "properties": {
+          "entityType": {
+            "type": "string",
+            "enum": [
+              "Account",
+              "Host",
+              "IP",
+              "Malware",
+              "File",
+              "Process",
+              "CloudApplication",
+              "DNS",
+              "AzureResource",
+              "FileHash",
+              "RegistryKey",
+              "RegistryValue",
+              "SecurityGroup",
+              "URL",
+              "IoTDevice",
+              "SecurityAlert",
+              "MailCluster",
+              "MailMessage",
+              "Mailbox",
+              "SubmissionMail"
+            ]
+          },
+          "fieldMappings": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["identifier", "columnName"],
+              "properties": {
+                "identifier": { "type": "string", "minLength": 1 },
+                "columnName": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "customDetails": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "alertDetailsOverride": {
+      "type": "object",
+      "properties": {
+        "alertDisplayNameFormat": { "type": "string" },
+        "alertDescriptionFormat": { "type": "string" },
+        "alertTacticsColumnName": { "type": "string" },
+        "alertSeverityColumnName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "eventGroupingSettings": {
+      "type": "object",
+      "properties": {
+        "aggregationKind": {
+          "type": "string",
+          "enum": ["SingleAlert", "AlertPerResult"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "suppressionEnabled": { "type": "boolean" },
+    "suppressionDuration": { "type": "string" },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["Scheduled", "NRT"]
+    }
+  },
+  "additionalProperties": false
+}
