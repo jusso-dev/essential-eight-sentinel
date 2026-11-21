@@ -1,0 +1,52 @@
+id: 6c2b9f4d-3e5a-4b8c-9d30-2f0a6b8c3d04
+name: "Essential Eight - Dormant Privileged Account Exceeding 45 Days Inactivity"
+description: |
+  Identifies enabled Microsoft Entra ID accounts holding privileged directory roles that have not
+  signed in for 45 days or more. The ASD Essential Eight Maturity Model (November 2023) requires
+  privileged access to be automatically disabled after 45 days of inactivity at Maturity Level 2
+  (E8-RAP-ML2-01).
+  Reference: https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - SigninLogs
+  - connectorId: BehaviorAnalytics
+    dataTypes:
+      - IdentityInfo
+queryFrequency: 1d
+queryPeriod: 14d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Persistence
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1078
+tags:
+  - EssentialEight:RestrictAdminPrivileges
+  - MaturityLevel:ML2
+  - Requirement:E8-RAP-ML2-01
+query: |
+  let privUsers = IdentityInfo
+  | where TimeGenerated > ago(14d)
+  | summarize arg_max(TimeGenerated, AssignedRoles, AccountEnabled) by AccountUPN
+  | where AccountEnabled == true and array_length(AssignedRoles) > 0
+  | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);
+  let activeSignins = SigninLogs
+  | where TimeGenerated > ago(45d)
+  | where ResultType == '0'
+  | summarize LastSignIn = max(TimeGenerated) by AccountUPN = tolower(UserPrincipalName);
+  privUsers
+  | join kind=leftanti activeSignins on AccountUPN
+  | project TimeGenerated = now(), AccountUPN, AssignedRolesStr
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: AccountUPN
+customDetails:
+  AssignedRoles: AssignedRolesStr
+version: 1.0.0
+kind: Scheduled

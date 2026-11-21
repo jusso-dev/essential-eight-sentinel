@@ -1,0 +1,52 @@
+id: 6c2b9f4d-3e5a-4b8c-9d30-2f0a6b8c3d03
+name: "Essential Eight - Entra PIM Activation Without Valid Justification"
+description: |
+  Detects Microsoft Entra Privileged Identity Management (PIM) role activations where the recorded
+  justification is missing or trivially short (fewer than 5 characters). Maps to ASD Essential Eight
+  requirement E8-RAP-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-how-to-use-audit-log
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - AuditLogs
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - PrivilegeEscalation
+  - DefenseEvasion
+relevantTechniques:
+  - T1078
+tags:
+  - EssentialEight:RestrictAdminPrivileges
+  - MaturityLevel:ML3
+  - Requirement:E8-RAP-ML3-01
+query: |
+  AuditLogs
+  | where Category == 'RoleManagement'
+  | where OperationName has 'Add member to role completed (PIM activation)'
+  | where Result =~ 'success'
+  | extend Justification = tostring(AdditionalDetails[0].value)
+  | extend DetailsStr = tostring(AdditionalDetails)
+  | where isempty(Justification) or strlen(trim(' ', Justification)) < 5 or DetailsStr !has 'Justification'
+  | extend ActorUPN = tostring(InitiatedBy.user.userPrincipalName)
+  | extend ActorIP = tostring(InitiatedBy.user.ipAddress)
+  | extend RoleName = tostring(TargetResources[0].displayName)
+  | project TimeGenerated, OperationName, RoleName, ActorUPN, ActorIP, Justification, DetailsStr
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: ActorUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ActorIP
+customDetails:
+  RoleName: RoleName
+  Justification: Justification
+version: 1.0.0
+kind: Scheduled
