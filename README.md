@@ -16,6 +16,12 @@ It ships:
 - A mapping of every rule and query to Essential Eight requirements and ISM controls
 - A packaged solution (Content hub format) with Deploy to Azure buttons
 
+## Deploy
+
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fjusso-dev%2Fessential-eight-sentinel%2Fmain%2FSolution%2FPackage%2FmainTemplate.json/createUIDefinitionUri/https%3A%2F%2Fraw.githubusercontent.com%2Fjusso-dev%2Fessential-eight-sentinel%2Fmain%2FSolution%2FPackage%2FcreateUiDefinition.json)
+
+See [docs/install-guide.md](docs/install-guide.md) for Azure Portal, Azure CLI and post-deployment verification steps.
+
 ## Layout
 
 ```text
