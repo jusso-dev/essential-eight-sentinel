@@ -1,0 +1,52 @@
+id: 5b1a8e3c-2d4f-4a7b-8c20-1e9f5a7b2c04
+name: "Essential Eight - Conditional Access Policy Disabled, Weakened or Deleted"
+description: |
+  Detects Microsoft Entra ID Conditional Access policies being deleted or switched to disabled or
+  report-only state, which can cause immediate regression in MFA enforcement. Maps to ASD Essential
+  Eight requirement E8-MFA-ML2-03.
+  Reference: https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-audit-logs
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - AuditLogs
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+relevantTechniques:
+  - T1562
+tags:
+  - EssentialEight:MultiFactorAuthentication
+  - MaturityLevel:ML2
+  - Requirement:E8-MFA-ML2-03
+query: |
+  AuditLogs
+  | where Category == 'Policy'
+  | where OperationName in~ ('Delete conditional access policy', 'Update conditional access policy')
+  | where Result =~ 'success'
+  | mv-expand Target = TargetResources
+  | extend PolicyName = tostring(Target.displayName)
+  | extend ModifiedProps = tostring(Target.modifiedProperties)
+  | where OperationName =~ 'Delete conditional access policy'
+      or ModifiedProps has_any ('"state":"disabled"', '"state":"enabledForReportingButNotEnforced"')
+  | extend ActorUPN = tostring(InitiatedBy.user.userPrincipalName)
+  | extend ActorIP = tostring(InitiatedBy.user.ipAddress)
+  | project TimeGenerated, OperationName, PolicyName, ActorUPN, ActorIP, ModifiedProps
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: ActorUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ActorIP
+customDetails:
+  PolicyName: PolicyName
+  OperationName: OperationName
+version: 1.0.0
+kind: Scheduled
