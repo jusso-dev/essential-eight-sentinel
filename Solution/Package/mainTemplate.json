@@ -279,6 +279,42 @@
       }
     },
     {
+      "type": "Microsoft.Insights/workbooks",
+      "apiVersion": "2022-04-01",
+      "name": "1ca0bf01-7561-520c-94ae-8bfab22bab7a",
+      "location": "[parameters('workspace-location')]",
+      "kind": "shared",
+      "properties": {
+        "displayName": "Essential Eight - RegularBackups",
+        "serializedData": "{\"version\":\"Notebook/1.0\",\"items\":[{\"type\":1,\"content\":{\"json\":\"## ASD Essential Eight: Regular backups\\n\\n> **Clear telemetry limits: Do not overstate coverage.**\\n>\\n> Microsoft Sentinel telemetry provides **partial visibility only** for the Regular backups strategy. This workbook surfaces Azure Backup job health, restore job history, protected instance inventory and vault modification events (`AddonAzureBackupJobs`, `AddonAzureBackupProtectedInstance`, `AzureActivity`) when Recovery Services vault and Backup vault diagnostics are forwarded to Log Analytics.\\n>\\n> **What cannot be evidenced from Sentinel telemetry alone (manual evidence required):**\\n> - **Microsoft 365 Backup**: Backup policy configuration, restore point integrity and recovery testing for Exchange Online, SharePoint and OneDrive require exports from the Microsoft 365 admin centre and Microsoft Graph / Purview audit review.\\n> - **Immutability lock state and offline/air-gapped media**: Confirming locked WORM immutability across every vault and verifying offline backup custody requires Azure Resource Graph inspection and physical/offsite custody records.\\n> - **Full disaster recovery and identity restoration exercises**: Application-level data integrity checks, RPO/RTO validation and bare-metal or Active Directory / Entra recovery drills must be evidenced through formal DR test reports under the [ASD Essential Eight Assessment Process Guide](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide).\\n> - **Third-party and on-premises backup platforms**: Workloads backed up outside Azure Backup are not visible unless custom connectors are onboarded.\\n>\\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Azure Backup monitoring documentation](https://learn.microsoft.com/en-us/azure/backup/backup-azure-monitoring-built-in-monitor).\"},\"name\":\"backups-limits-header\"},{\"type\":9,\"content\":{\"version\":\"KqlParameterItem/1.0\",\"parameters\":[{\"id\":\"e8-rb-time-range\",\"version\":\"KqlParameterItem/1.0\",\"name\":\"TimeRange\",\"label\":\"Time range\",\"type\":4,\"isRequired\":true,\"value\":{\"durationMs\":7776000000},\"typeSettings\":{\"selectableValues\":[{\"durationMs\":2592000000},{\"durationMs\":7776000000},{\"durationMs\":15552000000}]}}],\"style\":\"pills\",\"queryType\":0},\"name\":\"backups-parameters\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"let jobs = union isfuzzy=true (AddonAzureBackupJobs | where TimeGenerated > ago({TimeRange}) | project JobOperation, JobStatus), (datatable(JobOperation:string, JobStatus:string)[]);\\nlet kpiCompleted = jobs | where JobOperation == 'Backup' and JobStatus == 'Completed' | summarize Metric = 'Completed Azure Backup Jobs', Value = toreal(count());\\nlet kpiFailed = jobs | where JobOperation == 'Backup' and JobStatus == 'Failed' | summarize Metric = 'Failed Azure Backup Jobs', Value = toreal(count());\\nlet kpiRestores = jobs | where JobOperation == 'Restore' and JobStatus == 'Completed' | summarize Metric = 'Completed Restore Jobs (Test Evidence)', Value = toreal(count());\\nlet kpiSensitiveOps = AzureActivity | where TimeGenerated > ago({TimeRange}) | where OperationNameValue has_any ('Microsoft.RecoveryServices/vaults/delete', 'Microsoft.RecoveryServices/vaults/backupProtectedItems/delete', 'Microsoft.DataProtection/backupVaults/delete', 'backupconfig/write') | summarize Metric = 'Sensitive Vault / Immutability Changes', Value = toreal(count());\\nunion kpiCompleted, kpiFailed, kpiRestores, kpiSensitiveOps\",\"size\":4,\"title\":\"Azure Backup observable telemetry KPI summary (partial coverage)\",\"queryType\":0,\"visualization\":\"tiles\",\"tileSettings\":{\"titleContent\":{\"columnMatch\":\"Metric\",\"formatter\":1},\"leftContent\":{\"columnMatch\":\"Value\",\"formatter\":12},\"showBorder\":true}},\"name\":\"backups-kpi-tiles\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"AddonAzureBackupJobs\\n| where TimeGenerated > ago({TimeRange})\\n| where JobOperation == 'Backup'\\n| summarize TotalJobs = count(), Completed = countif(JobStatus == 'Completed'), Warnings = countif(JobStatus == 'CompletedWithWarnings'), Failed = countif(JobStatus == 'Failed'), LastJob = max(TimeGenerated) by BackupManagementType, DatasourceType, StorageReplicationType\\n| extend SuccessRatePct = round(100.0 * Completed / max_of(TotalJobs, 1), 1)\\n| order by Failed desc, SuccessRatePct asc\",\"size\":0,\"title\":\"Azure Backup job success rates by workload and replication type (E8-RB-ML1-01)\",\"queryType\":0,\"visualization\":\"table\"},\"name\":\"backups-job-health\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"AddonAzureBackupJobs\\n| where TimeGenerated > ago({TimeRange})\\n| where JobOperation == 'Restore'\\n| project TimeGenerated, BackupItemFriendlyName, BackupManagementType, DatasourceType, JobStatus, JobDurationInSecs, RecoveryJobDestination, RecoveryJobRPDateTime, ResourceGroupName\\n| order by TimeGenerated desc\\n| take 100\",\"size\":0,\"title\":\"Azure Backup restoration job history (supports ML1/ML2 quarterly test evidence)\",\"queryType\":0,\"visualization\":\"table\"},\"name\":\"backups-restore-tests\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"AddonAzureBackupProtectedInstance\\n| where TimeGenerated > ago(14d)\\n| summarize arg_max(TimeGenerated, ProtectedInstanceCount, StorageConsumedInMBs, StorageReplicationType, ArchiveTierStorageConsumedInMBs, VaultType) by VaultName, ResourceGroupName, BackupManagementType, DatasourceType\\n| project VaultName, VaultType, ResourceGroupName, BackupManagementType, DatasourceType, ProtectedInstanceCount, StorageReplicationType, StorageConsumedGB = round(StorageConsumedInMBs / 1024.0, 2)\\n| order by ProtectedInstanceCount desc\",\"size\":0,\"title\":\"Protected instances and vault storage redundancy (AddonAzureBackupProtectedInstance)\",\"queryType\":0,\"visualization\":\"table\"},\"name\":\"backups-protected-instances\"},{\"type\":3,\"content\":{\"version\":\"KqlItem/1.0\",\"query\":\"AzureActivity\\n| where TimeGenerated > ago({TimeRange})\\n| where OperationNameValue has_any ('Microsoft.RecoveryServices/', 'Microsoft.DataProtection/')\\n| where OperationNameValue has_any ('delete', 'backupconfig', 'backupPolicies', 'immutability', 'resourceGuard', 'backupProtectedItems')\\n| project TimeGenerated, OperationNameValue, ActivityStatusValue, Caller, CallerIpAddress, ResourceGroup, _ResourceId\\n| order by TimeGenerated desc\\n| take 100\",\"size\":0,\"title\":\"Backup vault deletion, policy change and immutability modification events (E8-RB-ML1-03, E8-RB-ML2-01, E8-RB-ML3-01)\",\"queryType\":0,\"visualization\":\"table\"},\"name\":\"backups-vault-tampering\"}],\"isLocked\":false,\"fallbackResourceIds\":[\"Azure Monitor\"],\"$schema\":\"https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json\"}",
+        "version": "1.0",
+        "sourceId": "[variables('workspaceResourceId')]",
+        "category": "sentinel"
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/contentTemplates",
+      "apiVersion": "2023-04-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/jusso-dev.essential-eight-sentinel-wb-essentialeight-regularbackups')]",
+      "location": "[parameters('workspace-location')]",
+      "properties": {
+        "contentId": "1ca0bf01-7561-520c-94ae-8bfab22bab7a",
+        "displayName": "Essential Eight - RegularBackups",
+        "contentKind": "Workbook",
+        "version": "1.0.0",
+        "contentSchemaVersion": "3.0.0",
+        "packageId": "jusso-dev.essential-eight-sentinel",
+        "packageVersion": "1.0.0",
+        "packageKind": "Solution",
+        "packageName": "ASD Essential Eight and ISM",
+        "mainTemplate": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": []
+        }
+      }
+    },
+    {
       "type": "Microsoft.OperationalInsights/workspaces/providers/contentTemplates",
       "apiVersion": "2023-04-01-preview",
       "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/jusso-dev.essential-eight-sentinel-ar-4a9e1c2f-7b3d-4e5a-9c10-2f8d4e6a1b01')]",
@@ -1646,6 +1682,87 @@
                 "customDetails": {
                   "FileName": "FileName",
                   "ProcessCommandLine": "ProcessCommandLine"
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces/providers/contentTemplates",
+      "apiVersion": "2023-04-01-preview",
+      "name": "[concat(parameters('workspace'), '/Microsoft.SecurityInsights/jusso-dev.essential-eight-sentinel-ar-1a6f3d8b-7c9e-4f2a-8b70-6d4e0f2a7b01')]",
+      "location": "[parameters('workspace-location')]",
+      "properties": {
+        "contentId": "1a6f3d8b-7c9e-4f2a-8b70-6d4e0f2a7b01",
+        "displayName": "Essential Eight - Azure Backup Vault Deletion or Immutability Weakening",
+        "contentKind": "AnalyticsRule",
+        "version": "1.0.0",
+        "contentSchemaVersion": "3.0.0",
+        "packageId": "jusso-dev.essential-eight-sentinel",
+        "packageVersion": "1.0.0",
+        "packageKind": "Solution",
+        "packageName": "ASD Essential Eight and ISM",
+        "mainTemplate": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "resources": [
+            {
+              "type": "Microsoft.SecurityInsights/AlertRuleTemplates",
+              "apiVersion": "2023-02-01-preview",
+              "name": "1a6f3d8b-7c9e-4f2a-8b70-6d4e0f2a7b01",
+              "kind": "Scheduled",
+              "properties": {
+                "displayName": "Essential Eight - Azure Backup Vault Deletion or Immutability Weakening",
+                "description": "Detects Azure Recovery Services or Backup vault deletion, backup protection removal, or\nsoft-delete/immutability configuration changes in AzureActivity. Supports ASD Essential Eight\nRegular backups requirements E8-RB-ML1-03, E8-RB-ML2-01 and E8-RB-ML3-01.\nReference: https://learn.microsoft.com/en-us/azure/backup/backup-azure-immutable-vault-concept",
+                "severity": "High",
+                "status": "Available",
+                "query": "AzureActivity\n| where OperationNameValue has_any ('Microsoft.RecoveryServices/', 'Microsoft.DataProtection/')\n| where OperationNameValue has_any (\n    'vaults/delete',\n    'backupProtectedItems/delete',\n    'backupVaults/delete',\n    'backupInstances/delete',\n    'backupconfig/write',\n    'resourceGuardProxies/delete'\n)\n| where ActivityStatusValue in~ ('Success', 'Succeeded', 'Start', 'Started')\n| project TimeGenerated, OperationNameValue, ActivityStatusValue, Caller, CallerIpAddress, ResourceGroup, ResourceId = _ResourceId\n",
+                "tactics": [
+                  "Impact",
+                  "DefenseEvasion"
+                ],
+                "techniques": [
+                  "T1490",
+                  "T1562"
+                ],
+                "requiredDataConnectors": [
+                  {
+                    "connectorId": "AzureActivity",
+                    "dataTypes": [
+                      "AzureActivity"
+                    ]
+                  }
+                ],
+                "version": "1.0.0",
+                "queryFrequency": "PT1H",
+                "queryPeriod": "PT1H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "entityMappings": [
+                  {
+                    "entityType": "Account",
+                    "fieldMappings": [
+                      {
+                        "identifier": "FullName",
+                        "columnName": "Caller"
+                      }
+                    ]
+                  },
+                  {
+                    "entityType": "IP",
+                    "fieldMappings": [
+                      {
+                        "identifier": "Address",
+                        "columnName": "CallerIpAddress"
+                      }
+                    ]
+                  }
+                ],
+                "customDetails": {
+                  "OperationNameValue": "OperationNameValue",
+                  "ResourceGroup": "ResourceGroup"
                 }
               }
             }
@@ -3550,6 +3667,11 @@
               "version": "1.0.0"
             },
             {
+              "kind": "Workbook",
+              "contentId": "1ca0bf01-7561-520c-94ae-8bfab22bab7a",
+              "version": "1.0.0"
+            },
+            {
               "kind": "AnalyticsRule",
               "contentId": "4a9e1c2f-7b3d-4e5a-9c10-2f8d4e6a1b01",
               "version": "1.0.0"
@@ -3632,6 +3754,11 @@
             {
               "kind": "AnalyticsRule",
               "contentId": "9f5e2c7a-6b8d-4e1f-8a60-5c3d9e1f6a02",
+              "version": "1.0.0"
+            },
+            {
+              "kind": "AnalyticsRule",
+              "contentId": "1a6f3d8b-7c9e-4f2a-8b70-6d4e0f2a7b01",
               "version": "1.0.0"
             },
             {
@@ -3836,11 +3963,11 @@
     },
     "workbooksDeployed": {
       "type": "int",
-      "value": 7
+      "value": 8
     },
     "analyticRuleTemplatesDeployed": {
       "type": "int",
-      "value": 17
+      "value": 18
     },
     "huntingQueriesDeployed": {
       "type": "int",

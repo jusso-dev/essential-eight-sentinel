@@ -6,7 +6,7 @@
     "config": {
       "isWizard": false,
       "basics": {
-        "description": "Community Microsoft Sentinel Content hub style solution for measuring and monitoring the Australian Signals Directorate (ASD) Essential Eight mitigation strategies and mapped Information Security Manual (ISM) controls using Microsoft Defender XDR, Microsoft Entra ID and Microsoft Intune telemetry. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Includes 7 workbooks, 17 analytics rule templates and 38 hunting queries."
+        "description": "Community Microsoft Sentinel Content hub style solution for measuring and monitoring the Australian Signals Directorate (ASD) Essential Eight mitigation strategies and mapped Information Security Manual (ISM) controls using Microsoft Defender XDR, Microsoft Entra ID and Microsoft Intune telemetry. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Includes 8 workbooks, 18 analytics rule templates and 38 hunting queries."
       }
     },
     "basics": [
@@ -31,7 +31,7 @@
             "name": "summaryText",
             "type": "Microsoft.Common.TextBlock",
             "options": {
-              "text": "This deployment installs 7 Essential Eight workbooks, 17 scheduled analytics rule templates and 38 read-only assessment evidence hunting queries into your Microsoft Sentinel workspace. No tenant settings or policies are modified."
+              "text": "This deployment installs 8 Essential Eight workbooks, 18 scheduled analytics rule templates and 38 read-only assessment evidence hunting queries into your Microsoft Sentinel workspace. No tenant settings or policies are modified."
             }
           }
         ]

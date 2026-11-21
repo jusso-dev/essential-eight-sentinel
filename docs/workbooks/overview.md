@@ -21,7 +21,7 @@ Telemetry-based maturity scores are **indicative operational indicators only**. 
 | 5. Restrict administrative privileges | [EssentialEight-RestrictAdminPrivileges.json](../../Solution/Workbooks/EssentialEight-RestrictAdminPrivileges.json) |
 | 6. Patch operating systems | [EssentialEight-PatchApplicationsAndOS.json](../../Solution/Workbooks/EssentialEight-PatchApplicationsAndOS.json) |
 | 7. Multi-factor authentication | [EssentialEight-MultiFactorAuthentication.json](../../Solution/Workbooks/EssentialEight-MultiFactorAuthentication.json) |
-| 8. Regular backups | `EssentialEight-RegularBackups.json` (tracked in Issue #10) |
+| 8. Regular backups | [EssentialEight-RegularBackups.json](../../Solution/Workbooks/EssentialEight-RegularBackups.json) |
 
 ## Disclaimer
 
