@@ -1,0 +1,128 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: Multi-factor authentication (MFA)\n\nMonitors MFA coverage, phishing-resistant MFA adoption (FIDO2 security keys, Windows Hello for Business, certificate-based authentication), legacy authentication usage and Conditional Access policy exclusions across Microsoft Entra ID (`SigninLogs`, `AADNonInteractiveUserSignInLogs`, `AuditLogs`) and Microsoft Sentinel UEBA (`IdentityInfo`).\n\n**ASD Essential Eight Maturity Model (November 2023) summary:**\n- **ML1**: MFA enforced for online services and sensitive third-party services; legacy authentication blocked.\n- **ML2**: Phishing-resistant MFA enforced for online services, sensitive data repositories and all privileged users; MFA events and Conditional Access changes centrally logged.\n- **ML3**: Phishing-resistant MFA enforced for all users authenticating to workstations, servers, online services and data repositories with no unapproved exclusions.\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Microsoft Entra authentication strengths](https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths)."
+      },
+      "name": "mfa-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-mfa-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 604800000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-mfa-target-ml",
+            "version": "KqlParameterItem/1.0",
+            "name": "TargetML",
+            "label": "Target maturity level",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[\"ML1\", \"ML2\", \"ML3\"]",
+            "value": "ML2"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "mfa-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let privUsers = IdentityInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN\n| where array_length(AssignedRoles) > 0\n| distinct AccountUPN = tolower(AccountUPN);\nlet signins = SigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend UserLower = tolower(UserPrincipalName)\n| extend AuthDetailsStr = tostring(AuthenticationDetails)\n| extend IsPhishingResistant = AuthDetailsStr has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey')\n| extend IsMfa = (AuthenticationRequirement == 'multiFactorAuthentication' or IsPhishingResistant)\n| extend IsLegacy = ClientAppUsed in~ ('IMAP4', 'POP3', 'SMTP', 'Exchange ActiveSync', 'Exchange Web Services', 'Autodiscover', 'MAPI Over HTTP', 'Other clients')\n| extend IsPrivileged = UserLower in (privUsers);\nlet kpiMfa = signins | summarize Metric = 'MFA Coverage % (ML1)', Value = round(100.0 * countif(IsMfa) / max_of(count(), 1), 1);\nlet kpiPrAll = signins | summarize Metric = 'Phishing-Resistant % All Users (ML2/ML3)', Value = round(100.0 * countif(IsPhishingResistant) / max_of(count(), 1), 1);\nlet kpiPrPriv = signins | where IsPrivileged | summarize Metric = 'Phishing-Resistant % Privileged (ML2)', Value = round(100.0 * countif(IsPhishingResistant) / max_of(count(), 1), 1);\nlet kpiLegacy = signins | where IsLegacy | summarize Metric = 'Successful Legacy Auth Sign-ins (ML1)', Value = toreal(count());\nlet kpiCaExcl = AuditLogs | where TimeGenerated > ago({TimeRange}) | where OperationName has 'conditional access' and tostring(TargetResources) has_any ('excludeUsers', 'excludeGroups', 'excludeRoles') | summarize Metric = 'CA Exclusion Changes (ML2/ML3)', Value = toreal(count());\nunion kpiMfa, kpiPrAll, kpiPrPriv, kpiLegacy, kpiCaExcl",
+        "size": 4,
+        "title": "MFA posture summary (ML1 to ML3)",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12
+          },
+          "showBorder": true
+        }
+      },
+      "name": "mfa-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend AuthDetailsStr = tostring(AuthenticationDetails)\n| extend StrengthTier = case(\n    AuthDetailsStr has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey'), 'Phishing-Resistant MFA (ML2/ML3)',\n    AuthenticationRequirement == 'multiFactorAuthentication', 'Phishable MFA (ML1 only)',\n    'Single-Factor Only (Below ML1)'\n)\n| summarize SignIns = count(), DistinctUsers = dcount(UserPrincipalName) by StrengthTier\n| order by SignIns desc",
+        "size": 0,
+        "title": "Authentication strength distribution across successful sign-ins",
+        "queryType": 0,
+        "visualization": "piechart"
+      },
+      "name": "mfa-strength-breakdown"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let privUsers = IdentityInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN\n| where array_length(AssignedRoles) > 0\n| project AccountUPN = tolower(AccountUPN), AssignedRoles;\nSigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend UserLower = tolower(UserPrincipalName)\n| join kind=inner privUsers on $left.UserLower == $right.AccountUPN\n| extend AuthDetailsStr = tostring(AuthenticationDetails)\n| extend IsPhishingResistant = AuthDetailsStr has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey')\n| where IsPhishingResistant == false\n| summarize SignInCount = count(), Apps = make_set(AppDisplayName, 10), Methods = make_set(AuthenticationRequirement, 5), LastSeen = max(TimeGenerated) by UserPrincipalName, tostring(AssignedRoles)\n| order by SignInCount desc\n| take 100",
+        "size": 0,
+        "title": "Privileged users authenticating without phishing-resistant MFA (E8-MFA-ML2-02)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "mfa-privileged-weak-auth"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "union isfuzzy=true SigninLogs, AADNonInteractiveUserSignInLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| where ClientAppUsed in~ ('IMAP4', 'POP3', 'SMTP', 'Exchange ActiveSync', 'Exchange Web Services', 'Autodiscover', 'MAPI Over HTTP', 'Other clients')\n| summarize SignInCount = count(), DistinctIPs = dcount(IPAddress), Apps = make_set(AppDisplayName, 5), LastSeen = max(TimeGenerated) by UserPrincipalName, ClientAppUsed\n| order by SignInCount desc\n| take 100",
+        "size": 0,
+        "title": "Successful legacy authentication sign-ins (E8-MFA-ML1-03)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "mfa-legacy-auth-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLogs\n| where TimeGenerated > ago({TimeRange})\n| where Category == 'Policy'\n| where OperationName has 'conditional access'\n| mv-expand Target = TargetResources\n| extend PolicyName = tostring(Target.displayName)\n| extend ModifiedProps = tostring(Target.modifiedProperties)\n| extend HasExclusionChange = ModifiedProps has_any ('excludeUsers', 'excludeGroups', 'excludeRoles', 'excludeApplications')\n| extend Actor = coalesce(tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| project TimeGenerated, OperationName, PolicyName, Actor, HasExclusionChange, Result, ModifiedProps\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Conditional Access policy changes and exclusions (E8-MFA-ML2-03, E8-MFA-ML3-01)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "mfa-ca-exclusions-table"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

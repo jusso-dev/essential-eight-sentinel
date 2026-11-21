@@ -5,11 +5,16 @@
   "Description": "Community Microsoft Sentinel Content hub style solution for measuring and monitoring the Australian Signals Directorate (ASD) Essential Eight mitigation strategies and mapped Information Security Manual (ISM) controls using Microsoft Defender XDR, Microsoft Entra ID and Microsoft Intune telemetry. Not produced, endorsed or supported by ASD, ACSC or Microsoft.",
   "Data Connectors": [],
   "Workbooks": [
-    "Workbooks/EssentialEight-PatchApplicationsAndOS.json"
+    "Workbooks/EssentialEight-PatchApplicationsAndOS.json",
+    "Workbooks/EssentialEight-MultiFactorAuthentication.json"
   ],
   "Analytic Rules": [
     "Analytic Rules/E8-Patch-ExploitedVulnOverdue48h.yaml",
-    "Analytic Rules/E8-Patch-UnsupportedOSDetected.yaml"
+    "Analytic Rules/E8-Patch-UnsupportedOSDetected.yaml",
+    "Analytic Rules/E8-MFA-ConditionalAccessExclusionAdded.yaml",
+    "Analytic Rules/E8-MFA-LegacyAuthSuccess.yaml",
+    "Analytic Rules/E8-MFA-PrivilegedNonPhishingResistantSignIn.yaml",
+    "Analytic Rules/E8-MFA-ConditionalAccessPolicyDisabledOrDeleted.yaml"
   ],
   "Hunting Queries": [],
   "BasePath": "Solution",

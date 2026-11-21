@@ -1,0 +1,57 @@
+id: 5b1a8e3c-2d4f-4a7b-8c20-1e9f5a7b2c01
+name: "Essential Eight - Conditional Access Exclusion Added"
+description: |
+  Detects modifications to Microsoft Entra ID Conditional Access policies where user, group, role
+  or application exclusions are added or expanded. Maps to ASD Essential Eight Maturity Model
+  requirements E8-MFA-ML2-03 and E8-MFA-ML3-01.
+  Reference: https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - AuditLogs
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+  - Persistence
+relevantTechniques:
+  - T1556
+  - T1562
+tags:
+  - EssentialEight:MultiFactorAuthentication
+  - MaturityLevel:ML2
+  - MaturityLevel:ML3
+  - Requirement:E8-MFA-ML2-03
+  - Requirement:E8-MFA-ML3-01
+query: |
+  AuditLogs
+  | where Category == 'Policy'
+  | where OperationName in~ ('Update conditional access policy', 'Add conditional access policy')
+  | where Result =~ 'success'
+  | mv-expand Target = TargetResources
+  | mv-expand Prop = Target.modifiedProperties
+  | extend OldVal = tostring(Prop.oldValue), NewVal = tostring(Prop.newValue)
+  | where NewVal has_any ('excludeUsers', 'excludeGroups', 'excludeRoles', 'excludeApplications')
+  | where NewVal != OldVal
+  | extend ActorUPN = tostring(InitiatedBy.user.userPrincipalName)
+  | extend ActorIP = tostring(InitiatedBy.user.ipAddress)
+  | extend PolicyName = tostring(Target.displayName)
+  | project TimeGenerated, OperationName, PolicyName, ActorUPN, ActorIP, OldVal, NewVal
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: ActorUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ActorIP
+customDetails:
+  PolicyName: PolicyName
+  OperationName: OperationName
+version: 1.0.0
+kind: Scheduled

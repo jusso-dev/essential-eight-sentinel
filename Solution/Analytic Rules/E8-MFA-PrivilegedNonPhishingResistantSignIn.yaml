@@ -1,0 +1,60 @@
+id: 5b1a8e3c-2d4f-4a7b-8c20-1e9f5a7b2c03
+name: "Essential Eight - Privileged Account Sign-In Without Phishing-Resistant MFA"
+description: |
+  Detects successful interactive sign-ins by accounts holding Microsoft Entra ID directory roles
+  that did not authenticate with a phishing-resistant MFA method (FIDO2, Windows Hello for Business
+  or certificate-based authentication). Maps to ASD Essential Eight requirements E8-MFA-ML2-02 and E8-MFA-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - SigninLogs
+  - connectorId: BehaviorAnalytics
+    dataTypes:
+      - IdentityInfo
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - CredentialAccess
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1078
+  - T1556
+tags:
+  - EssentialEight:MultiFactorAuthentication
+  - MaturityLevel:ML2
+  - MaturityLevel:ML3
+  - Requirement:E8-MFA-ML2-02
+  - Requirement:E8-MFA-ML3-01
+query: |
+  let privUsers = IdentityInfo
+  | where TimeGenerated > ago(30d)
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+  | where array_length(AssignedRoles) > 0
+  | project AccountUPN = tolower(AccountUPN), AssignedRoles;
+  SigninLogs
+  | where ResultType == '0'
+  | extend UserLower = tolower(UserPrincipalName)
+  | join kind=inner privUsers on $left.UserLower == $right.AccountUPN
+  | extend AuthDetailsStr = tostring(AuthenticationDetails)
+  | extend IsPhishingResistant = AuthDetailsStr has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey')
+  | where IsPhishingResistant == false
+  | project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, AuthenticationRequirement, AssignedRoles = tostring(AssignedRoles), AuthDetailsStr
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: IPAddress
+customDetails:
+  AppDisplayName: AppDisplayName
+  AuthenticationRequirement: AuthenticationRequirement
+version: 1.0.0
+kind: Scheduled
