@@ -1,0 +1,54 @@
+id: 6c2b9f4d-3e5a-4b8c-9d30-2f0a6b8c3d02
+name: "Essential Eight - Standing Global Administrator Assignment Outside PIM"
+description: |
+  Detects permanent (standing) assignments to Global Administrator or Privileged Role Administrator
+  in Microsoft Entra ID outside time-bound Privileged Identity Management (PIM) activation.
+  Maps to ASD Essential Eight requirement E8-RAP-ML2-02.
+  Reference: https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - AuditLogs
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Persistence
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1098
+  - T1078
+tags:
+  - EssentialEight:RestrictAdminPrivileges
+  - MaturityLevel:ML2
+  - Requirement:E8-RAP-ML2-02
+query: |
+  AuditLogs
+  | where Category == 'RoleManagement'
+  | where OperationName in~ ('Add member to role', 'Add member to role outside of PIM (permanent)')
+  | where Result =~ 'success'
+  | where OperationName !has 'eligible' and OperationName !has 'PIM activation'
+  | mv-expand Target = TargetResources
+  | extend TargetProps = tostring(Target.modifiedProperties)
+  | where TargetProps has_any ('Global Administrator', 'Company Administrator', 'Privileged Role Administrator', 'Security Administrator')
+  | extend ActorUPN = tostring(InitiatedBy.user.userPrincipalName)
+  | extend ActorIP = tostring(InitiatedBy.user.ipAddress)
+  | extend TargetUPN = tostring(Target.userPrincipalName)
+  | project TimeGenerated, OperationName, ActorUPN, ActorIP, TargetUPN, TargetProps
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: TargetUPN
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: ActorIP
+customDetails:
+  ActorUPN: ActorUPN
+  OperationName: OperationName
+version: 1.0.0
+kind: Scheduled

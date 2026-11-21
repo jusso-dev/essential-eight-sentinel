@@ -1,0 +1,63 @@
+id: 6c2b9f4d-3e5a-4b8c-9d30-2f0a6b8c3d01
+name: "Essential Eight - Privileged Account Used for Email or Web Productivity Services"
+description: |
+  Detects Microsoft Entra ID privileged role holders authenticating to email, messaging or general
+  web productivity services (Exchange Online, Outlook, Teams, SharePoint, OneDrive) or browsing
+  external web endpoints. Maps to ASD Essential Eight requirement E8-RAP-ML1-02.
+  Reference: https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActiveDirectory
+    dataTypes:
+      - SigninLogs
+  - connectorId: BehaviorAnalytics
+    dataTypes:
+      - IdentityInfo
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1078
+  - T1566
+tags:
+  - EssentialEight:RestrictAdminPrivileges
+  - MaturityLevel:ML1
+  - Requirement:E8-RAP-ML1-02
+query: |
+  let privUsers = IdentityInfo
+  | where TimeGenerated > ago(30d)
+  | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN
+  | where array_length(AssignedRoles) > 0
+  | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);
+  SigninLogs
+  | where ResultType == '0'
+  | extend UserLower = tolower(UserPrincipalName)
+  | join kind=inner privUsers on $left.UserLower == $right.AccountUPN
+  | where AppDisplayName has_any (
+      'Office 365 Exchange Online',
+      'Outlook',
+      'Microsoft Teams',
+      'Office 365 SharePoint Online',
+      'OneDrive',
+      'Microsoft 365'
+  )
+  | project TimeGenerated, UserPrincipalName, IPAddress, AppDisplayName, ClientAppUsed, AssignedRolesStr
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: UserPrincipalName
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: IPAddress
+customDetails:
+  AppDisplayName: AppDisplayName
+  AssignedRoles: AssignedRolesStr
+version: 1.0.0
+kind: Scheduled

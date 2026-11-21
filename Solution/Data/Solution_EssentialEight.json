@@ -6,7 +6,8 @@
   "Data Connectors": [],
   "Workbooks": [
     "Workbooks/EssentialEight-PatchApplicationsAndOS.json",
-    "Workbooks/EssentialEight-MultiFactorAuthentication.json"
+    "Workbooks/EssentialEight-MultiFactorAuthentication.json",
+    "Workbooks/EssentialEight-RestrictAdminPrivileges.json"
   ],
   "Analytic Rules": [
     "Analytic Rules/E8-Patch-ExploitedVulnOverdue48h.yaml",
@@ -14,7 +15,11 @@
     "Analytic Rules/E8-MFA-ConditionalAccessExclusionAdded.yaml",
     "Analytic Rules/E8-MFA-LegacyAuthSuccess.yaml",
     "Analytic Rules/E8-MFA-PrivilegedNonPhishingResistantSignIn.yaml",
-    "Analytic Rules/E8-MFA-ConditionalAccessPolicyDisabledOrDeleted.yaml"
+    "Analytic Rules/E8-MFA-ConditionalAccessPolicyDisabledOrDeleted.yaml",
+    "Analytic Rules/E8-Admin-PrivilegedAccountEmailOrWebAccess.yaml",
+    "Analytic Rules/E8-Admin-StandingGlobalAdminAssigned.yaml",
+    "Analytic Rules/E8-Admin-PIMActivationWithoutJustification.yaml",
+    "Analytic Rules/E8-Admin-DormantPrivilegedAccountActivity.yaml"
   ],
   "Hunting Queries": [],
   "BasePath": "Solution",

@@ -1,0 +1,129 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: Restrict administrative privileges\n\nTracks privileged account hygiene, separation of administrative and user duties, standing Global Administrator assignments, Microsoft Entra Privileged Identity Management (PIM) activation justification, phishing-resistant MFA on privileged accounts, and endpoint credential protection (Credential Guard, Windows LAPS and HVCI).\n\n**ASD Essential Eight Maturity Model (November 2023) summary:**\n- **ML1**: Privileged accounts are prevented from accessing the internet, email and web services; separate accounts are used for administrative tasks.\n- **ML2**: Just-in-time elevation (PIM) replaces standing privileged access; inactive privileged accounts disabled after 45 days; Credential Guard and LAPS enabled.\n- **ML3**: Privileged activations require justification and approval; Privileged Access Workstations (PAWs), phishing-resistant MFA and hardware-backed memory integrity are enforced.\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Microsoft Entra PIM documentation](https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure)."
+      },
+      "name": "admin-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-rap-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 },
+                { "durationMs": 3888000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-rap-target-ml",
+            "version": "KqlParameterItem/1.0",
+            "name": "TargetML",
+            "label": "Target maturity level",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[\"ML1\", \"ML2\", \"ML3\"]",
+            "value": "ML2"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "admin-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let privUsers = IdentityInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN\n| where array_length(AssignedRoles) > 0\n| project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);\nlet emailWebSignins = SigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend UserLower = tolower(UserPrincipalName)\n| join kind=inner privUsers on $left.UserLower == $right.AccountUPN\n| where AppDisplayName has_any ('Office 365', 'Exchange Online', 'Outlook', 'Teams', 'SharePoint', 'OneDrive', 'Microsoft 365')\n| summarize Metric = 'Privileged Email/Web Accounts (ML1)', Value = toreal(dcount(UserLower));\nlet standingGlobalAdmins = privUsers\n| where AssignedRolesStr has 'Global Administrator'\n| summarize Metric = 'Standing Global Admins (ML2)', Value = toreal(dcount(AccountUPN));\nlet pimNoJust = AuditLogs\n| where TimeGenerated > ago({TimeRange})\n| where Category == 'RoleManagement'\n| where OperationName has 'Add member to role completed (PIM activation)'\n| extend Reason = tostring(AdditionalDetails)\n| where isempty(Reason) or Reason !has 'Justification'\n| summarize Metric = 'PIM Activations Missing Justification (ML3)', Value = toreal(count());\nlet privWeakMfa = SigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend UserLower = tolower(UserPrincipalName)\n| join kind=inner privUsers on $left.UserLower == $right.AccountUPN\n| where tostring(AuthenticationDetails) !has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey')\n| summarize Metric = 'Privileged Users Without Phishing-Resistant MFA', Value = toreal(dcount(UserLower));\nunion emailWebSignins, standingGlobalAdmins, pimNoJust, privWeakMfa",
+        "size": 4,
+        "title": "Restrict administrative privileges KPI summary",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12
+          },
+          "showBorder": true
+        }
+      },
+      "name": "admin-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let privUsers = IdentityInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN\n| where array_length(AssignedRoles) > 0\n| project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);\nSigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend UserLower = tolower(UserPrincipalName)\n| join kind=inner privUsers on $left.UserLower == $right.AccountUPN\n| where AppDisplayName has_any ('Office 365', 'Exchange Online', 'Outlook', 'Teams', 'SharePoint', 'OneDrive', 'Microsoft 365')\n| summarize SignInCount = count(), Apps = make_set(AppDisplayName, 10), LastSeen = max(TimeGenerated) by UserPrincipalName, AssignedRolesStr\n| order by SignInCount desc\n| take 100",
+        "size": 0,
+        "title": "Privileged accounts accessing email or productivity web apps (E8-RAP-ML1-02)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "admin-email-web-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AuditLogs\n| where TimeGenerated > ago({TimeRange})\n| where Category == 'RoleManagement'\n| where OperationName has_any ('Add member to role', 'PIM activation', 'Add eligible member')\n| extend Actor = coalesce(tostring(InitiatedBy.user.userPrincipalName), tostring(InitiatedBy.app.displayName))\n| extend TargetUser = tostring(TargetResources[0].userPrincipalName)\n| extend RoleName = tostring(TargetResources[0].displayName)\n| extend IsPimActivation = OperationName has 'PIM activation'\n| extend IsStandingAssignment = OperationName has 'Add member to role' and not(OperationName has 'PIM') and not(OperationName has 'eligible')\n| project TimeGenerated, OperationName, RoleName, TargetUser, Actor, IsPimActivation, IsStandingAssignment, Result, AdditionalDetails = tostring(AdditionalDetails)\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "Directory role assignments and Entra PIM activations (E8-RAP-ML2-02, E8-RAP-ML3-01)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "admin-pim-roles-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let privUsers = IdentityInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, AssignedRoles, AccountEnabled) by AccountUPN\n| where array_length(AssignedRoles) > 0\n| project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles), AccountEnabled;\nlet lastSignins = SigninLogs\n| where TimeGenerated > ago(90d)\n| where ResultType == '0'\n| summarize LastSignIn = max(TimeGenerated) by AccountUPN = tolower(UserPrincipalName);\nprivUsers\n| join kind=leftouter lastSignins on AccountUPN\n| extend DaysInactive = iff(isnull(LastSignIn), 90, datetime_diff('day', now(), LastSignIn))\n| where DaysInactive >= 45\n| project AccountUPN, AccountEnabled, AssignedRolesStr, LastSignIn, DaysInactive\n| order by DaysInactive desc",
+        "size": 0,
+        "title": "Privileged accounts inactive for 45+ days (E8-RAP-ML2-01)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "admin-dormant-accounts"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationId in ('scid-2003', 'scid-2090', 'scid-2091', 'scid-91')\n    or ConfigurationSubcategory has_any ('Credential', 'LAPS', 'Memory', 'Local Administrator')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationCategory, ConfigurationSubcategory) by DeviceId, DeviceName, ConfigurationId\n| where IsApplicable == true\n| summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant == false) by ConfigurationId, ConfigurationSubcategory\n| extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)\n| order by CompliancePct asc",
+        "size": 0,
+        "title": "Credential Guard, LAPS and Memory Integrity (HVCI) posture (E8-RAP-ML2-03, E8-RAP-ML3-02)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "admin-credential-protection"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
