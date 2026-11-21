@@ -1,0 +1,22 @@
+{
+  "publisherId": "jusso-dev",
+  "offerId": "essential-eight-sentinel",
+  "firstPublishDate": "2026-11-21",
+  "providers": [
+    "Microsoft"
+  ],
+  "categories": {
+    "domains": [
+      "Security - Threat Protection",
+      "Compliance"
+    ]
+  },
+  "support": {
+    "name": "essential-eight-sentinel community",
+    "tier": "Community",
+    "link": "https://github.com/jusso-dev/essential-eight-sentinel/issues"
+  },
+  "author": {
+    "name": "jusso-dev"
+  }
+}

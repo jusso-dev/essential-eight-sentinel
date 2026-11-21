@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate Sentinel content, KQL, YAML, Markdown and style
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python validation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run style check (em dashes, emojis, secrets, endorsement)
+        run: python tests/validators/style_check.py
+
+      - name: Run YAML lint
+        run: yamllint -c .yamllint.yml .
+
+      - name: Run Sentinel schema, KQL and content tests
+        run: pytest -v
+
+      - name: Set up Node.js for Markdown lint
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run Markdown lint
+        run: npx --yes markdownlint-cli2 "**/*.md" "#node_modules" "#.venv"

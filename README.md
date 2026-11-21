@@ -18,7 +18,7 @@ It ships:
 
 ## Layout
 
-```
+```text
 Solution/        Content hub package (data, workbooks, analytic rules, hunting queries)
 mappings/        Essential Eight requirement and ISM control mappings (CSV/YAML)
 docs/            Guides and architecture

@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jusso-dev/essential-eight-sentinel/schemas/solution_metadata.schema.json",
+  "title": "Microsoft Sentinel SolutionMetadata",
+  "type": "object",
+  "required": [
+    "publisherId",
+    "offerId",
+    "firstPublishDate",
+    "providers",
+    "categories",
+    "support",
+    "author"
+  ],
+  "properties": {
+    "publisherId": { "type": "string", "minLength": 1 },
+    "offerId": { "type": "string", "minLength": 1 },
+    "firstPublishDate": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+    "providers": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "categories": {
+      "type": "object",
+      "required": ["domains"],
+      "properties": {
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "support": {
+      "type": "object",
+      "required": ["name", "tier", "link"],
+      "properties": {
+        "name": { "type": "string" },
+        "tier": { "type": "string", "enum": ["Community", "Partner", "Microsoft"] },
+        "link": { "type": "string" }
+      }
+    },
+    "author": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" }
+      }
+    }
+  }
+}

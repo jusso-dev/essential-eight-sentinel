@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jusso-dev/essential-eight-sentinel/schemas/hunting_query.schema.json",
+  "title": "Microsoft Sentinel Hunting Query",
+  "description": "Validates Microsoft Sentinel Content hub hunting query YAML templates.",
+  "type": "object",
+  "required": [
+    "id",
+    "name",
+    "description",
+    "requiredDataConnectors",
+    "tactics",
+    "relevantTechniques",
+    "query",
+    "version"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 256
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20
+    },
+    "description-detailed": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Available", "InPreview", "Deprecated"]
+    },
+    "requiredDataConnectors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["connectorId", "dataTypes"],
+        "properties": {
+          "connectorId": { "type": "string", "minLength": 1 },
+          "dataTypes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "tactics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "Reconnaissance",
+          "ResourceDevelopment",
+          "InitialAccess",
+          "Execution",
+          "Persistence",
+          "PrivilegeEscalation",
+          "DefenseEvasion",
+          "CredentialAccess",
+          "Discovery",
+          "LateralMovement",
+          "Collection",
+          "CommandAndControl",
+          "Exfiltration",
+          "Impact",
+          "ImpairProcessControl",
+          "InhibitResponseFunction"
+        ]
+      }
+    },
+    "relevantTechniques": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$"
+      }
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "object" }
+        ]
+      }
+    },
+    "query": {
+      "type": "string",
+      "minLength": 10
+    },
+    "entityMappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["entityType", "fieldMappings"],
+        "properties": {
+          "entityType": { "type": "string" },
+          "fieldMappings": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["identifier", "columnName"],
+              "properties": {
+                "identifier": { "type": "string", "minLength": 1 },
+                "columnName": { "type": "string", "minLength": 1 }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "customDetails": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    }
+  },
+  "additionalProperties": false
+}
