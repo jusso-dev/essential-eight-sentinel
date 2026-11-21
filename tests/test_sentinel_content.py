@@ -212,6 +212,31 @@ def test_observable_requirements_have_hunting_queries() -> None:
     assert not missing, f"Observable requirements missing evidence hunting queries: {missing}"
 
 
+def test_solution_package_arm_and_ui_templates() -> None:
+    main_path = SOLUTION_DIR / "Package" / "mainTemplate.json"
+    ui_path = SOLUTION_DIR / "Package" / "createUiDefinition.json"
+    if not main_path.exists() or not ui_path.exists():
+        pytest.skip("Solution package not yet built")
+
+    main_tpl = json.loads(main_path.read_text(encoding="utf-8"))
+    ui_def = json.loads(ui_path.read_text(encoding="utf-8"))
+
+    assert main_tpl["$schema"].endswith("deploymentTemplate.json#")
+    assert "workspace" in main_tpl["parameters"]
+    assert "workspace-location" in main_tpl["parameters"]
+    assert main_tpl["resources"], "mainTemplate.json must contain ARM resources"
+
+    resource_types = {r["type"] for r in main_tpl["resources"]}
+    assert "Microsoft.Insights/workbooks" in resource_types
+    assert "Microsoft.OperationalInsights/workspaces/savedSearches" in resource_types
+    assert "Microsoft.OperationalInsights/workspaces/providers/contentTemplates" in resource_types
+    assert "Microsoft.OperationalInsights/workspaces/providers/contentPackages" in resource_types
+
+    assert ui_def["handler"] == "Microsoft.Azure.CreateUIDef"
+    ui_outputs = set(ui_def["parameters"]["outputs"].keys())
+    assert {"workspace", "workspace-location"}.issubset(ui_outputs)
+
+
 def test_repository_style_compliance() -> None:
     violations = check_repository(REPO_ROOT)
     assert not violations, "Style violations found:\n" + "\n".join(violations)

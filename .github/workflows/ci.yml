@@ -41,6 +41,9 @@ jobs:
       - name: Verify generated ISM coverage table is up to date
         run: python scripts/generate_ism_coverage.py --check
 
+      - name: Verify Content hub solution package builds and matches source
+        run: python scripts/build_solution_package.py --check --zip dist/essential-eight-sentinel-package.zip
+
       - name: Set up Node.js for Markdown lint
         uses: actions/setup-node@v4
         with:
