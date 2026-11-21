@@ -7,7 +7,8 @@
   "Workbooks": [
     "Workbooks/EssentialEight-PatchApplicationsAndOS.json",
     "Workbooks/EssentialEight-MultiFactorAuthentication.json",
-    "Workbooks/EssentialEight-RestrictAdminPrivileges.json"
+    "Workbooks/EssentialEight-RestrictAdminPrivileges.json",
+    "Workbooks/EssentialEight-ApplicationControl.json"
   ],
   "Analytic Rules": [
     "Analytic Rules/E8-Patch-ExploitedVulnOverdue48h.yaml",
@@ -19,7 +20,10 @@
     "Analytic Rules/E8-Admin-PrivilegedAccountEmailOrWebAccess.yaml",
     "Analytic Rules/E8-Admin-StandingGlobalAdminAssigned.yaml",
     "Analytic Rules/E8-Admin-PIMActivationWithoutJustification.yaml",
-    "Analytic Rules/E8-Admin-DormantPrivilegedAccountActivity.yaml"
+    "Analytic Rules/E8-Admin-DormantPrivilegedAccountActivity.yaml",
+    "Analytic Rules/E8-AppControl-PolicyRemovedOrDeleted.yaml",
+    "Analytic Rules/E8-AppControl-PolicySwitchedToAuditMode.yaml",
+    "Analytic Rules/E8-AppControl-VulnerableDriverOrBypassAttempt.yaml"
   ],
   "Hunting Queries": [],
   "BasePath": "Solution",

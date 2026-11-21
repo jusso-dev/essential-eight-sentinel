@@ -1,0 +1,54 @@
+id: 7d3c0a5e-4f6b-4c9d-8e40-3a1b7c9d4e02
+name: "Essential Eight - App Control for Business (WDAC) Policy Weakened to Audit Mode"
+description: |
+  Detects endpoints that previously emitted App Control enforced block events switching to
+  audit-only events, or administrative commands deploying audit-mode policies. Switching from
+  enforced to audit mode causes immediate Essential Eight compliance regression.
+  Reference: https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/event-id-explanations
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceEvents
+      - DeviceProcessEvents
+queryFrequency: 6h
+queryPeriod: 14d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+relevantTechniques:
+  - T1562
+tags:
+  - EssentialEight:ApplicationControl
+  - MaturityLevel:ML1
+  - MaturityLevel:ML2
+  - Requirement:E8-AC-ML1-01
+query: |
+  let previouslyEnforced = DeviceEvents
+  | where TimeGenerated between (ago(14d) .. ago(6h))
+  | where ActionType in ('AppControlCodeIntegrityPolicyBlocked', 'AppControlExecutableBlocked')
+  | distinct DeviceId;
+  let recentAudit = DeviceEvents
+  | where TimeGenerated > ago(6h)
+  | where ActionType in ('AppControlCodeIntegrityPolicyAudited', 'AppControlExecutableAudited')
+  | join kind=inner previouslyEnforced on DeviceId
+  | summarize AuditEvents = count(), SampleFiles = make_set(FileName, 5), LastSeen = max(TimeGenerated) by DeviceId, DeviceName
+  | project TimeGenerated = LastSeen, DeviceName, DetectionSource = 'EnforcedToAuditTransition', Details = strcat('Audit events: ', tostring(AuditEvents), '; files: ', tostring(SampleFiles));
+  let auditCmds = DeviceProcessEvents
+  | where TimeGenerated > ago(6h)
+  | where ProcessCommandLine has_any ('Set-RuleOption', 'Audit Mode', 'Option 3')
+      and ProcessCommandLine has_any ('CIPolicy', 'WDAC', 'AppControl', 'CodeIntegrity')
+  | project TimeGenerated, DeviceName, DetectionSource = 'AuditModeRuleCommand', Details = ProcessCommandLine;
+  union recentAudit, auditCmds
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+customDetails:
+  DetectionSource: DetectionSource
+  Details: Details
+version: 1.0.0
+kind: Scheduled
