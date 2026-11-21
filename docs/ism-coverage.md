@@ -7,11 +7,11 @@ This table maps every analytics rule, hunting query and workbook tile in `Soluti
 ## Summary
 
 - **ISM release:** ISM September 2026
-- **Distinct ISM controls mapped:** 24
-- **Total mappings:** 87
-- **Analytics rules mapped:** 17
+- **Distinct ISM controls mapped:** 26
+- **Total mappings:** 93
+- **Analytics rules mapped:** 18
 - **Hunting queries mapped:** 38
-- **Workbook tiles mapped:** 32
+- **Workbook tiles mapped:** 37
 
 ### Coverage by Essential Eight strategy
 
@@ -23,6 +23,7 @@ This table maps every analytics rule, hunting query and workbook tile in `Soluti
 | `overview` | 3 |
 | `patch-applications` | 9 |
 | `patch-operating-systems` | 8 |
+| `regular-backups` | 6 |
 | `restrict-admin-privileges` | 14 |
 | `user-application-hardening` | 13 |
 
@@ -90,6 +91,12 @@ This table maps every analytics rule, hunting query and workbook tile in `Soluti
 | `ISM-1696` | `patch-operating-systems` | `E8-POS-ML3-01` | ML3 | `hunting_query` | `Solution/Hunting Queries/Evidence/E8-POS-ML3-01-Evidence.yaml` | Essential Eight Evidence - E8-POS-ML3-01 (ML3) |
 | `ISM-1695` | `patch-operating-systems` | `E8-POS-ML1-02` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-PatchApplicationsAndOS.json` | age-distribution-by-group |
 | `ISM-1696` | `patch-operating-systems` | `E8-POS-ML1-03` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-PatchApplicationsAndOS.json` | unsupported-os-table |
+| `ISM-1511` | `regular-backups` | `E8-RB-ML3-01` | ML3 | `analytic_rule` | `Solution/Analytic Rules/E8-Backups-VaultDeleteOrImmutabilityWeakened.yaml` | Essential Eight - Azure Backup Vault Deletion or Immutability Weakening |
+| `ISM-1511` | `regular-backups` | `E8-RB-ML1-01` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-RegularBackups.json` | backups-job-health |
+| `ISM-1511` | `regular-backups` | `E8-RB-ML1-01` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-RegularBackups.json` | backups-kpi-tiles |
+| `ISM-1511` | `regular-backups` | `E8-RB-ML1-01` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-RegularBackups.json` | backups-protected-instances |
+| `ISM-1515` | `regular-backups` | `E8-RB-ML1-02` | ML1 | `workbook_tile` | `Solution/Workbooks/EssentialEight-RegularBackups.json` | backups-restore-tests |
+| `ISM-1511` | `regular-backups` | `E8-RB-ML3-01` | ML3 | `workbook_tile` | `Solution/Workbooks/EssentialEight-RegularBackups.json` | backups-vault-tampering |
 | `ISM-1508` | `restrict-admin-privileges` | `E8-RAP-ML2-01` | ML2 | `analytic_rule` | `Solution/Analytic Rules/E8-Admin-DormantPrivilegedAccountActivity.yaml` | Essential Eight - Dormant Privileged Account Exceeding 45 Days Inactivity |
 | `ISM-1507` | `restrict-admin-privileges` | `E8-RAP-ML3-01` | ML3 | `analytic_rule` | `Solution/Analytic Rules/E8-Admin-PIMActivationWithoutJustification.yaml` | Essential Eight - Entra PIM Activation Without Valid Justification |
 | `ISM-1175` | `restrict-admin-privileges` | `E8-RAP-ML1-02` | ML1 | `analytic_rule` | `Solution/Analytic Rules/E8-Admin-PrivilegedAccountEmailOrWebAccess.yaml` | Essential Eight - Privileged Account Used for Email or Web Productivity Services |

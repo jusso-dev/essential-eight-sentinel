@@ -11,7 +11,8 @@
     "Workbooks/EssentialEight-RestrictAdminPrivileges.json",
     "Workbooks/EssentialEight-ApplicationControl.json",
     "Workbooks/EssentialEight-OfficeMacros.json",
-    "Workbooks/EssentialEight-UserApplicationHardening.json"
+    "Workbooks/EssentialEight-UserApplicationHardening.json",
+    "Workbooks/EssentialEight-RegularBackups.json"
   ],
   "Analytic Rules": [
     "Analytic Rules/E8-Patch-ExploitedVulnOverdue48h.yaml",
@@ -30,7 +31,8 @@
     "Analytic Rules/E8-Macros-InternetMacroPolicyWeakened.yaml",
     "Analytic Rules/E8-Macros-OfficeMacroWin32ApiOrChildProcess.yaml",
     "Analytic Rules/E8-Hardening-PowerShellV2DowngradeOrCLMBypass.yaml",
-    "Analytic Rules/E8-Hardening-LegacyBrowserOrScriptEngineExecution.yaml"
+    "Analytic Rules/E8-Hardening-LegacyBrowserOrScriptEngineExecution.yaml",
+    "Analytic Rules/E8-Backups-VaultDeleteOrImmutabilityWeakened.yaml"
   ],
   "Hunting Queries": [
     "Hunting Queries/E8-Macros-Hunt-InternetFileMacroExecution.yaml",

@@ -1,0 +1,56 @@
+id: 1a6f3d8b-7c9e-4f2a-8b70-6d4e0f2a7b01
+name: "Essential Eight - Azure Backup Vault Deletion or Immutability Weakening"
+description: |
+  Detects Azure Recovery Services or Backup vault deletion, backup protection removal, or
+  soft-delete/immutability configuration changes in AzureActivity. Supports ASD Essential Eight
+  Regular backups requirements E8-RB-ML1-03, E8-RB-ML2-01 and E8-RB-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/azure/backup/backup-azure-immutable-vault-concept
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: AzureActivity
+    dataTypes:
+      - AzureActivity
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Impact
+  - DefenseEvasion
+relevantTechniques:
+  - T1490
+  - T1562
+tags:
+  - EssentialEight:RegularBackups
+  - MaturityLevel:ML1
+  - MaturityLevel:ML2
+  - MaturityLevel:ML3
+  - Requirement:E8-RB-ML3-01
+query: |
+  AzureActivity
+  | where OperationNameValue has_any ('Microsoft.RecoveryServices/', 'Microsoft.DataProtection/')
+  | where OperationNameValue has_any (
+      'vaults/delete',
+      'backupProtectedItems/delete',
+      'backupVaults/delete',
+      'backupInstances/delete',
+      'backupconfig/write',
+      'resourceGuardProxies/delete'
+  )
+  | where ActivityStatusValue in~ ('Success', 'Succeeded', 'Start', 'Started')
+  | project TimeGenerated, OperationNameValue, ActivityStatusValue, Caller, CallerIpAddress, ResourceGroup, ResourceId = _ResourceId
+entityMappings:
+  - entityType: Account
+    fieldMappings:
+      - identifier: FullName
+        columnName: Caller
+  - entityType: IP
+    fieldMappings:
+      - identifier: Address
+        columnName: CallerIpAddress
+customDetails:
+  OperationNameValue: OperationNameValue
+  ResourceGroup: ResourceGroup
+version: 1.0.0
+kind: Scheduled
