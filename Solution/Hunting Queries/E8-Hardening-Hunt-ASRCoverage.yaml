@@ -1,0 +1,47 @@
+id: 9f5e2c7a-6b8d-4e1f-8a60-5c3d9e1f6a11
+name: "Essential Eight Hunt - Attack Surface Reduction (ASR) Rule Coverage and Audit Mode Gaps"
+description: |
+  Measures Attack Surface Reduction (ASR) rule compliance across devices from
+  DeviceTvmSecureConfigurationAssessment and correlates against DeviceEvents to distinguish
+  rules enforcing in Block mode from rules still operating in Audit mode. Supports E8-UAH-ML2-01
+  and E8-UAH-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceTvmSecureConfigurationAssessment
+      - DeviceEvents
+      - DeviceInfo
+tactics:
+  - DefenseEvasion
+  - Execution
+relevantTechniques:
+  - T1204
+  - T1059
+tags:
+  - EssentialEight:UserApplicationHardening
+  - Requirement:E8-UAH-ML2-01
+  - Requirement:E8-UAH-ML3-01
+query: |
+  let devices = DeviceInfo
+  | where TimeGenerated > ago(30d)
+  | summarize arg_max(TimeGenerated, MachineGroup, OSPlatform) by DeviceId, DeviceName
+  | extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup);
+  let tvmAsr = DeviceTvmSecureConfigurationAssessment
+  | where TimeGenerated > ago(14d)
+  | where ConfigurationSubcategory has 'Attack surface reduction' or ConfigurationId has 'asr'
+  | summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, ConfigurationId
+  | where IsApplicable == true
+  | join kind=inner devices on DeviceId
+  | summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant == false) by GroupName, ConfigurationId;
+  let runtimeAsr = DeviceEvents
+  | where TimeGenerated > ago(14d)
+  | where ActionType startswith 'Asr'
+  | join kind=inner devices on DeviceId
+  | summarize BlockedEvents = countif(ActionType endswith 'Blocked'), AuditedEvents = countif(ActionType endswith 'Audited'), ActiveDevices = dcount(DeviceId) by GroupName;
+  tvmAsr
+  | join kind=leftouter runtimeAsr on GroupName
+  | extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)
+  | project GroupName, ConfigurationId, CompliantDevices, NonCompliantDevices, CompliancePct, BlockedEvents = coalesce(BlockedEvents, 0), AuditedEvents = coalesce(AuditedEvents, 0)
+  | order by CompliancePct asc, NonCompliantDevices desc
+version: 1.0.0

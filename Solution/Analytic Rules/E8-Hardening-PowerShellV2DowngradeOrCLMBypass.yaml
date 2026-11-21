@@ -1,0 +1,54 @@
+id: 9f5e2c7a-6b8d-4e1f-8a60-5c3d9e1f6a01
+name: "Essential Eight - PowerShell v2 Downgrade or Constrained Language Mode Tampering"
+description: |
+  Detects Windows PowerShell 2.0 downgrade executions (which bypass Script Block Logging and
+  Constrained Language Mode) or registry modifications weakening __PSLockdownPolicy or
+  PowerShell ScriptBlockLogging. Maps to ASD Essential Eight requirements E8-UAH-ML2-02 and E8-UAH-ML2-03.
+  Reference: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_language_modes
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceProcessEvents
+      - DeviceRegistryEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+  - Execution
+relevantTechniques:
+  - T1059.001
+  - T1562.001
+tags:
+  - EssentialEight:UserApplicationHardening
+  - MaturityLevel:ML2
+  - Requirement:E8-UAH-ML2-02
+  - Requirement:E8-UAH-ML2-03
+query: |
+  let psV2 = DeviceProcessEvents
+  | where FileName in~ ('powershell.exe', 'powershell_ise.exe')
+  | where ProcessCommandLine matches regex '(?i)(^|\\s)-(v|ver|version)\\s+2(\\.0)?(\\s|$)'
+  | project TimeGenerated, DeviceName, AccountName, DetectionType = 'PowerShellV2Downgrade', Detail = ProcessCommandLine;
+  let clmTamper = DeviceRegistryEvents
+  | where ActionType in ('RegistryValueSet', 'RegistryValueDeleted')
+  | where (RegistryValueName =~ '__PSLockdownPolicy' and (ActionType == 'RegistryValueDeleted' or RegistryValueData != '4'))
+      or (RegistryKey has 'ScriptBlockLogging' and RegistryValueName =~ 'EnableScriptBlockLogging' and RegistryValueData == '0')
+  | project TimeGenerated, DeviceName, AccountName = InitiatingProcessAccountName, DetectionType = 'PowerShellHardeningTampered', Detail = strcat(RegistryKey, '\\', RegistryValueName, '=', RegistryValueData);
+  union psV2, clmTamper
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: Name
+        columnName: AccountName
+customDetails:
+  DetectionType: DetectionType
+  Detail: Detail
+version: 1.0.0
+kind: Scheduled
