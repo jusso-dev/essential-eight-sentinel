@@ -1,0 +1,128 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: Application control\n\nMeasures App Control for Business (formerly Windows Defender Application Control / WDAC) enforcement coverage, audit-only devices, blocked executions, user-profile executions and vulnerable driver blocklist events using Microsoft Defender for Endpoint telemetry (`DeviceEvents`, `DeviceProcessEvents`, `DeviceInfo`, `DeviceTvmSecureConfigurationAssessment`).\n\n**ASD Essential Eight Maturity Model (November 2023) summary:**\n- **ML1**: Application control enforced on workstations restricting execution from user-writable locations.\n- **ML2**: Extended to internet-facing servers, Microsoft recommended block rules and vulnerable driver blocklists enabled, execution events centrally logged.\n- **ML3**: Enforced across all workstations and all servers using cryptographic hash, publisher certificate or immutable path rules.\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Query App Control events with advanced hunting](https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/querying-application-control-events-centrally-using-advanced-hunting)."
+      },
+      "name": "appcontrol-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-ac-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-ac-device-group",
+            "version": "KqlParameterItem/1.0",
+            "name": "DeviceGroup",
+            "label": "Device group",
+            "type": 2,
+            "isRequired": false,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "DeviceInfo\n| where TimeGenerated > ago(30d)\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| distinct GroupName\n| order by GroupName asc",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*"
+            },
+            "queryType": 0,
+            "value": [
+              "value::all"
+            ]
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "appcontrol-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, DeviceType, IsInternetFacing) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nlet acEvents = DeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType startswith 'AppControl'\n| join kind=inner devices on DeviceId;\nlet perDevice = acEvents\n| summarize BlockedCount = countif(ActionType has 'Blocked'), AuditedCount = countif(ActionType has 'Audited'), RevokedCount = countif(ActionType has 'Revoked') by DeviceId;\nlet kpiEnforced = perDevice | where BlockedCount > 0 | summarize Metric = 'Devices Emitting Enforced Blocks', Value = toreal(dcount(DeviceId));\nlet kpiAuditOnly = perDevice | where BlockedCount == 0 and AuditedCount > 0 | summarize Metric = 'Audit-Only Devices (Needs Enforcement)', Value = toreal(dcount(DeviceId));\nlet kpiBlocked = acEvents | where ActionType has 'Blocked' | summarize Metric = 'Total Blocked Executions', Value = toreal(count());\nlet kpiAudited = acEvents | where ActionType has 'Audited' | summarize Metric = 'Total Audited Executions', Value = toreal(count());\nlet kpiRevoked = acEvents | where ActionType has 'Revoked' | summarize Metric = 'Vulnerable Driver / Revoked Image Blocks', Value = toreal(count());\nunion kpiEnforced, kpiAuditOnly, kpiBlocked, kpiAudited, kpiRevoked",
+        "size": 4,
+        "title": "App Control for Business (WDAC) KPI summary",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12
+          },
+          "showBorder": true
+        }
+      },
+      "name": "appcontrol-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, DeviceType, IsInternetFacing, OSPlatform) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}))\n| extend ScopeBucket = case(\n    DeviceType =~ 'Workstation', 'Workstations (ML1+)',\n    IsInternetFacing == true, 'Internet-Facing Servers (ML2+)',\n    'Internal Servers (ML3)'\n);\nlet acState = DeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType startswith 'AppControl'\n| summarize Blocked = countif(ActionType has 'Blocked'), Audited = countif(ActionType has 'Audited') by DeviceId\n| extend PolicyMode = case(Blocked > 0, 'Enforced (Blocking)', Audited > 0, 'Audit Only', 'Other AppControl Event');\ndevices\n| join kind=leftouter acState on DeviceId\n| extend PolicyMode = coalesce(PolicyMode, 'No AppControl Telemetry')\n| summarize Devices = dcount(DeviceId) by ScopeBucket, PolicyMode\n| order by ScopeBucket asc, Devices desc",
+        "size": 0,
+        "title": "Enforcement coverage by Essential Eight asset scope (ML1 workstations, ML2 internet-facing servers, ML3 all servers)",
+        "queryType": 0,
+        "visualization": "barchart"
+      },
+      "name": "appcontrol-coverage-by-scope"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, DeviceType, IsInternetFacing) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType in ('AppControlCodeIntegrityPolicyBlocked', 'AppControlCodeIntegrityPolicyAudited', 'AppControlExecutableBlocked', 'AppControlExecutableAudited', 'AppControlCodeIntegrityDriverRevoked', 'AppControlCodeIntegrityImageRevoked')\n| join kind=inner devices on DeviceId\n| extend Fields = parse_json(AdditionalFields)\n| extend PolicyName = tostring(Fields.PolicyName), PublisherName = tostring(Fields.PublisherName)\n| summarize EventCount = count(), Devices = dcount(DeviceId), SampleDevices = make_set(DeviceName, 5), LastSeen = max(TimeGenerated) by ActionType, FileName, FolderPath, SHA256, PublisherName, PolicyName\n| order by EventCount desc\n| take 100",
+        "size": 0,
+        "title": "Top blocked, audited and revoked App Control execution events",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "appcontrol-blocked-audited-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, DeviceType) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceProcessEvents\n| where TimeGenerated > ago({TimeRange})\n| where FolderPath has_any ('\\\\Users\\\\', '\\\\AppData\\\\', '\\\\Temp\\\\', '\\\\Downloads\\\\', '\\\\ProgramData\\\\')\n| where FileName endswith '.exe' or FileName endswith '.scr' or FileName endswith '.com' or FileName endswith '.bat' or FileName endswith '.ps1'\n| join kind=inner devices on DeviceId\n| summarize Executions = count(), Devices = dcount(DeviceId), SampleAccounts = make_set(AccountName, 5) by FileName, FolderPath, SHA256, GroupName\n| order by Devices desc, Executions desc\n| take 100",
+        "size": 0,
+        "title": "Executions from user-writable directories (E8-AC-ML1-02 gap check)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "appcontrol-user-writable-execs"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}

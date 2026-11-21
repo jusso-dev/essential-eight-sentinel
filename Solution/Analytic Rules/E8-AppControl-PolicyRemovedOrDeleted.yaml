@@ -1,0 +1,53 @@
+id: 7d3c0a5e-4f6b-4c9d-8e40-3a1b7c9d4e01
+name: "Essential Eight - App Control for Business (WDAC) Policy Removed or Deleted"
+description: |
+  Detects deletion or removal of active App Control for Business (WDAC) binary policy files
+  under CodeIntegrity directories or removal via CiTool.exe, which disables application control
+  enforcement. Maps to ASD Essential Eight requirements E8-AC-ML1-01 and E8-AC-ML2-03.
+  Reference: https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/operations/citool-commands
+severity: High
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceFileEvents
+      - DeviceProcessEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+relevantTechniques:
+  - T1562
+tags:
+  - EssentialEight:ApplicationControl
+  - MaturityLevel:ML1
+  - MaturityLevel:ML2
+  - Requirement:E8-AC-ML1-01
+  - Requirement:E8-AC-ML2-03
+query: |
+  let policyDeletes = DeviceFileEvents
+  | where ActionType in ('FileDeleted', 'FileRenamed')
+  | where FolderPath has_any ('\\System32\\CodeIntegrity\\CiPolicies\\Active', '\\System32\\CodeIntegrity\\SIPolicy.p7b', '\\EFI\\Microsoft\\Boot\\CiPolicies\\Active')
+  | where FileName endswith '.cip' or FileName =~ 'SIPolicy.p7b'
+  | project TimeGenerated, DeviceName, AccountName = InitiatingProcessAccountName, DetectionSource = 'PolicyFileDeleted', Details = strcat(ActionType, ': ', FolderPath, '\\', FileName);
+  let citoolRemovals = DeviceProcessEvents
+  | where FileName =~ 'CiTool.exe'
+  | where ProcessCommandLine has_any ('--remove-policy', '-rp')
+  | project TimeGenerated, DeviceName, AccountName, DetectionSource = 'CiToolRemovePolicy', Details = ProcessCommandLine;
+  union policyDeletes, citoolRemovals
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: Name
+        columnName: AccountName
+customDetails:
+  DetectionSource: DetectionSource
+  Details: Details
+version: 1.0.0
+kind: Scheduled

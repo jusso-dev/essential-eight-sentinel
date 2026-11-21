@@ -1,0 +1,49 @@
+id: 7d3c0a5e-4f6b-4c9d-8e40-3a1b7c9d4e03
+name: "Essential Eight - App Control Vulnerable Driver or Revoked Image Blocked"
+description: |
+  Detects attempts to load revoked drivers or vulnerable signed images blocked by Microsoft's
+  recommended driver block rules under App Control for Business (WDAC). Maps to ASD Essential
+  Eight Maturity Level 2 requirement E8-AC-ML2-02.
+  Reference: https://learn.microsoft.com/en-us/windows/security/application-security/application-control/app-control-for-business/design/microsoft-recommended-driver-block-rules
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - DefenseEvasion
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1068
+  - T1562
+tags:
+  - EssentialEight:ApplicationControl
+  - MaturityLevel:ML2
+  - Requirement:E8-AC-ML2-02
+query: |
+  DeviceEvents
+  | where ActionType in ('AppControlCodeIntegrityDriverRevoked', 'AppControlCodeIntegrityImageRevoked')
+  | extend Fields = parse_json(AdditionalFields)
+  | extend PolicyName = tostring(Fields.PolicyName)
+  | project TimeGenerated, DeviceName, ActionType, FileName, FolderPath, SHA256, InitiatingProcessAccountName, PolicyName
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: File
+    fieldMappings:
+      - identifier: Name
+        columnName: FileName
+      - identifier: Directory
+        columnName: FolderPath
+customDetails:
+  FileName: FileName
+  PolicyName: PolicyName
+version: 1.0.0
+kind: Scheduled
