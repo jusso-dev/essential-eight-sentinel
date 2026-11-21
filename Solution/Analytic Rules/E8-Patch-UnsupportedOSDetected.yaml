@@ -1,0 +1,47 @@
+id: 4a9e1c2f-7b3d-4e5a-9c10-2f8d4e6a1b02
+name: "Essential Eight - Unsupported Operating System Active in Environment"
+description: |
+  Detects onboarded endpoints running operating systems that are no longer supported by their vendor.
+  The ASD Essential Eight Maturity Model (November 2023) requires unsupported operating systems to be
+  replaced at Maturity Level 1 and above (E8-POS-ML1-03).
+  Reference: https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceInfo
+queryFrequency: 1d
+queryPeriod: 7d
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - InitialAccess
+  - PrivilegeEscalation
+relevantTechniques:
+  - T1190
+  - T1068
+tags:
+  - EssentialEight:PatchOperatingSystems
+  - MaturityLevel:ML1
+  - Requirement:E8-POS-ML1-03
+query: |
+  DeviceInfo
+  | where TimeGenerated > ago(7d)
+  | summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform, OSVersion, OSBuild, OSVersionInfo) by DeviceId, DeviceName
+  | where OSPlatform in~ ('Windows7', 'Windows8', 'Windows81', 'WindowsXP', 'WindowsVista', 'WindowsServer2008', 'WindowsServer2008R2', 'WindowsServer2012', 'WindowsServer2012R2')
+      or (OSPlatform =~ 'Windows10' and toint(OSBuild) < 19045)
+      or (OSPlatform =~ 'Windows11' and toint(OSBuild) < 22631)
+      or OSVersionInfo has_any ('EndOfLife', 'Unsupported')
+  | project TimeGenerated, DeviceName, MachineGroup, IsInternetFacing, OSPlatform, OSVersion, OSBuild, OSVersionInfo
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+customDetails:
+  OSPlatform: OSPlatform
+  OSVersion: OSVersion
+  MachineGroup: MachineGroup
+version: 1.0.0
+kind: Scheduled

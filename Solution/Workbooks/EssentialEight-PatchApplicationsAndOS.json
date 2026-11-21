@@ -1,0 +1,164 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: Patch applications and Patch operating systems\n\nThis workbook measures vulnerability remediation timeframes, exploited vulnerabilities (including CISA KEV and vendor-confirmed exploits), and unsupported software or operating systems using Microsoft Defender Vulnerability Management tables (`DeviceTvmSoftwareVulnerabilities`, `DeviceTvmSoftwareVulnerabilitiesKB`, `DeviceTvmSoftwareInventory`, `DeviceInfo` and `IntuneDevices`).\n\n**ASD Essential Eight Maturity Model (November 2023) timeframes:**\n- **48 hours**: Critical or actively exploited vulnerabilities in online services, internet-facing OS, core user applications (browsers, Office, PDF, email clients, security software), and at ML3 all applications and operating systems.\n- **2 weeks (14 days)**: Non-critical vulnerabilities in core applications (ML1 to ML3), internet-facing OS (ML2 to ML3), and all other applications and OS (ML3).\n- **1 month (30 days)**: Non-critical vulnerabilities in other applications (ML2) and non-internet-facing workstation/server OS (ML1 to ML2).\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Indicative telemetry only; refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model)."
+      },
+      "name": "header-text"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-pa-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 },
+                { "durationMs": 7776000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-pa-device-group",
+            "version": "KqlParameterItem/1.0",
+            "name": "DeviceGroup",
+            "label": "Device group",
+            "type": 2,
+            "isRequired": false,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "DeviceInfo\n| where TimeGenerated > ago(30d)\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| distinct GroupName\n| order by GroupName asc",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*"
+            },
+            "queryType": 0,
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "e8-pa-target-ml",
+            "version": "KqlParameterItem/1.0",
+            "name": "TargetML",
+            "label": "Target maturity level",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[\"ML1\", \"ML2\", \"ML3\"]",
+            "value": "ML2"
+          },
+          {
+            "id": "e8-pa-exposure",
+            "version": "KqlParameterItem/1.0",
+            "name": "ExposureFilter",
+            "label": "Device exposure",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[\"All\", \"InternetFacing\", \"InternalOnly\"]",
+            "value": "All"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "patch-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let latestDevices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform, OSVersion) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}))\n| where ('{ExposureFilter}' == 'All' or ('{ExposureFilter}' == 'InternetFacing' and IsInternetFacing == true) or ('{ExposureFilter}' == 'InternalOnly' and IsInternetFacing != true));\nlet kb = DeviceTvmSoftwareVulnerabilitiesKB\n| summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable, VulnerabilitySeverityLevel, CvssScore) by CveId;\nlet vulns = DeviceTvmSoftwareVulnerabilities\n| where TimeGenerated > ago(14d)\n| summarize arg_max(TimeGenerated, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel, RecommendedSecurityUpdate, CveTags) by DeviceId, DeviceName, CveId\n| join kind=inner latestDevices on DeviceId\n| join kind=leftouter kb on CveId\n| extend AgeHours = datetime_diff('hour', now(), coalesce(PublishedDate, TimeGenerated))\n| extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any ('ZeroDay', 'ExploitInTheWild', 'CISA_KEV'))\n| extend IsOS = (SoftwareName has_any ('windows', 'ubuntu', 'rhel', 'debian', 'centos', 'macos', 'linux_kernel', 'server'))\n| extend IsCoreApp = (not(IsOS) and (SoftwareName has_any ('chrome', 'edge', 'firefox', 'safari', 'office', 'word', 'excel', 'outlook', 'acrobat', 'reader', 'foxit', 'defender', 'crowdstrike', 'sentinelone', '7zip', 'java', 'zoom', 'teams')));\nlet overdueExploited = vulns | where (IsExploited or VulnerabilitySeverityLevel == 'Critical') and AgeHours > 48 | summarize Metric = 'Overdue Critical / Exploited (>48h)', Value = dcount(strcat(DeviceId, CveId));\nlet overdueCoreApps = vulns | where IsCoreApp and AgeHours > (14 * 24) | summarize Metric = 'Overdue Core Apps (>14d)', Value = dcount(strcat(DeviceId, CveId));\nlet overdueOtherApps = vulns | where not(IsOS) and not(IsCoreApp) and AgeHours > iff('{TargetML}' == 'ML3', 14 * 24, 30 * 24) | summarize Metric = 'Overdue Other Apps (ML SLA)', Value = dcount(strcat(DeviceId, CveId));\nlet overdueOS = vulns | where IsOS and AgeHours > iff(IsInternetFacing == true or '{TargetML}' == 'ML3', 14 * 24, 30 * 24) | summarize Metric = 'Overdue OS Patches (ML SLA)', Value = dcount(strcat(DeviceId, CveId));\nunion overdueExploited, overdueCoreApps, overdueOtherApps, overdueOS",
+        "size": 4,
+        "title": "Patch SLA overdue summary (filtered by device group and target ML)",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            }
+          },
+          "showBorder": true
+        }
+      },
+      "name": "patch-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let latestDevices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}))\n| where ('{ExposureFilter}' == 'All' or ('{ExposureFilter}' == 'InternetFacing' and IsInternetFacing == true) or ('{ExposureFilter}' == 'InternalOnly' and IsInternetFacing != true));\nlet kb = DeviceTvmSoftwareVulnerabilitiesKB\n| summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable, CvssScore) by CveId;\nDeviceTvmSoftwareVulnerabilities\n| where TimeGenerated > ago(14d)\n| summarize arg_max(TimeGenerated, SoftwareVendor, SoftwareName, SoftwareVersion, VulnerabilitySeverityLevel, RecommendedSecurityUpdate, CveTags) by DeviceId, DeviceName, CveId\n| join kind=inner latestDevices on DeviceId\n| join kind=leftouter kb on CveId\n| extend AgeHours = datetime_diff('hour', now(), coalesce(PublishedDate, TimeGenerated))\n| extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any ('ZeroDay', 'ExploitInTheWild', 'CISA_KEV'))\n| where IsExploited or VulnerabilitySeverityLevel == 'Critical'\n| extend SlaStatus = iff(AgeHours > 48, 'Breached (>48h)', 'Within 48h')\n| summarize AffectedDevices = dcount(DeviceId), MaxAgeHours = max(AgeHours), DeviceGroups = make_set(GroupName, 10) by CveId, SoftwareVendor, SoftwareName, VulnerabilitySeverityLevel, IsExploited, SlaStatus, RecommendedSecurityUpdate\n| order by MaxAgeHours desc, AffectedDevices desc\n| take 100",
+        "size": 0,
+        "title": "Exploited (CISA KEV / vendor exploited) and Critical vulnerabilities against 48-hour SLA",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "exploited-and-critical-vulns"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let latestDevices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}))\n| where ('{ExposureFilter}' == 'All' or ('{ExposureFilter}' == 'InternetFacing' and IsInternetFacing == true) or ('{ExposureFilter}' == 'InternalOnly' and IsInternetFacing != true));\nlet kb = DeviceTvmSoftwareVulnerabilitiesKB\n| summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable) by CveId;\nDeviceTvmSoftwareVulnerabilities\n| where TimeGenerated > ago(14d)\n| summarize arg_max(TimeGenerated, SoftwareName, VulnerabilitySeverityLevel, CveTags) by DeviceId, CveId\n| join kind=inner latestDevices on DeviceId\n| join kind=leftouter kb on CveId\n| extend AgeDays = round(datetime_diff('hour', now(), coalesce(PublishedDate, TimeGenerated)) / 24.0, 1)\n| extend IsOS = (SoftwareName has_any ('windows', 'ubuntu', 'rhel', 'debian', 'centos', 'macos', 'linux_kernel', 'server'))\n| extend IsCoreApp = (not(IsOS) and (SoftwareName has_any ('chrome', 'edge', 'firefox', 'safari', 'office', 'word', 'excel', 'outlook', 'acrobat', 'reader', 'foxit', 'defender', 'zoom', 'teams')))\n| extend Category = case(IsOS, 'Operating Systems', IsCoreApp, 'Core Applications', 'Other Applications')\n| extend AgeBucket = case(AgeDays <= 2, '0-48h', AgeDays <= 14, '2-14d', AgeDays <= 30, '15-30d', '>30d')\n| summarize Findings = count() by GroupName, Category, AgeBucket\n| order by GroupName asc, Category asc",
+        "size": 0,
+        "title": "Vulnerability age distribution by device group and Essential Eight category",
+        "queryType": 0,
+        "visualization": "barchart"
+      },
+      "name": "age-distribution-by-group"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let latestDevices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform, OSVersion, OSVersionInfo) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceTvmSoftwareInventory\n| where TimeGenerated > ago(14d)\n| where EndOfSupportStatus == 'True' or (isnotnull(EndOfSupportDate) and EndOfSupportDate < now())\n| summarize arg_max(TimeGenerated, EndOfSupportStatus, EndOfSupportDate) by DeviceId, SoftwareVendor, SoftwareName, SoftwareVersion\n| join kind=inner latestDevices on DeviceId\n| summarize AffectedDevices = dcount(DeviceId), DeviceGroups = make_set(GroupName, 10) by SoftwareVendor, SoftwareName, SoftwareVersion, EndOfSupportDate\n| order by AffectedDevices desc\n| take 100",
+        "size": 0,
+        "title": "Unsupported / end-of-life applications (E8-PA-ML1-03)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "unsupported-software-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup, IsInternetFacing, OSPlatform, OSVersion, OSBuild, OSVersionInfo) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}))\n| extend IsUnsupportedOS = (\n    OSPlatform in~ ('Windows7', 'Windows8', 'Windows81', 'WindowsXP', 'WindowsVista', 'WindowsServer2008', 'WindowsServer2008R2', 'WindowsServer2012', 'WindowsServer2012R2')\n    or (OSPlatform =~ 'Windows10' and toint(OSBuild) < 19045)\n    or (OSPlatform =~ 'Windows11' and toint(OSBuild) < 22631)\n    or OSVersionInfo has_any ('EndOfLife', 'Unsupported')\n)\n| where IsUnsupportedOS == true\n| summarize DeviceCount = dcount(DeviceId), InternetFacingCount = dcountif(DeviceId, IsInternetFacing == true), SampleDevices = make_set(DeviceName, 10) by GroupName, OSPlatform, OSVersion, OSBuild\n| order by DeviceCount desc",
+        "size": 0,
+        "title": "Unsupported / end-of-life operating systems (E8-POS-ML1-03)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "unsupported-os-table"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
