@@ -2,7 +2,7 @@
 
 Microsoft Sentinel Content hub style solution for the ASD Essential Eight and ISM: workbooks, analytics rules and hunting queries on Defender XDR, Entra and Intune data.
 
-> **Status:** early build. Work is tracked in [issues](https://github.com/jusso-dev/essential-eight-sentinel/issues).
+> **Status:** `v1.0.0` released. See [CHANGELOG.md](CHANGELOG.md), [docs/architecture.md](docs/architecture.md), [docs/ism-coverage.md](docs/ism-coverage.md) and [issues](https://github.com/jusso-dev/essential-eight-sentinel/issues).
 
 ## Goal
 
