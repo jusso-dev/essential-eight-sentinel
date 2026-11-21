@@ -1,0 +1,48 @@
+id: 9f5e2c7a-6b8d-4e1f-8a60-5c3d9e1f6a02
+name: "Essential Eight - Retired Internet Explorer 11 or Legacy Script Host Execution"
+description: |
+  Detects executions of retired Internet Explorer 11 (iexplore.exe) or legacy script hosts
+  (mshta.exe, wscript.exe, cscript.exe) launching from untrusted user paths. Maps to ASD
+  Essential Eight requirements E8-UAH-ML1-02 and E8-UAH-ML3-01.
+  Reference: https://learn.microsoft.com/en-us/lifecycle/announcements/internet-explorer-11-end-of-support
+severity: Medium
+status: Available
+requiredDataConnectors:
+  - connectorId: MicrosoftThreatProtection
+    dataTypes:
+      - DeviceProcessEvents
+queryFrequency: 1h
+queryPeriod: 1h
+triggerOperator: gt
+triggerThreshold: 0
+tactics:
+  - Execution
+  - DefenseEvasion
+relevantTechniques:
+  - T1218.005
+  - T1059.005
+tags:
+  - EssentialEight:UserApplicationHardening
+  - MaturityLevel:ML1
+  - MaturityLevel:ML3
+  - Requirement:E8-UAH-ML1-02
+  - Requirement:E8-UAH-ML3-01
+query: |
+  DeviceProcessEvents
+  | where FileName =~ 'iexplore.exe'
+      or (FileName in~ ('mshta.exe', 'wscript.exe', 'cscript.exe') and ProcessCommandLine has_any ('http://', 'https://', '\\Downloads\\', '\\Temp\\', '\\AppData\\'))
+  | project TimeGenerated, DeviceName, AccountName, FileName, FolderPath, ProcessCommandLine, InitiatingProcessFileName
+entityMappings:
+  - entityType: Host
+    fieldMappings:
+      - identifier: HostName
+        columnName: DeviceName
+  - entityType: Account
+    fieldMappings:
+      - identifier: Name
+        columnName: AccountName
+customDetails:
+  FileName: FileName
+  ProcessCommandLine: ProcessCommandLine
+version: 1.0.0
+kind: Scheduled

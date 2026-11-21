@@ -1,0 +1,140 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight: User application hardening\n\nMeasures web browser hardening, Internet Explorer 11 removal, .NET Framework 3.5 and older elimination, PowerShell 2.0 removal, PowerShell Constrained Language Mode and logging, and Attack Surface Reduction (ASR) rule coverage using Microsoft Defender for Endpoint and Vulnerability Management telemetry.\n\n**ASD Essential Eight Maturity Model (November 2023) summary:**\n- **ML1**: Web browsers block Java from the internet and web advertisements; Internet Explorer 11 disabled/removed; users cannot change browser security settings.\n- **ML2**: Office, browsers and PDF readers hardened via ASR rules; .NET Framework 3.5 (including 2.0/3.0) and PowerShell 2.0 disabled/removed; PowerShell Constrained Language Mode and central logging enabled.\n- **ML3**: Hardened user application configurations centrally enforced and protected from tampering, with blocked execution events monitored.\n\n> **Disclaimer:** Independent community workbook. Not produced, endorsed or supported by ASD, ACSC or Microsoft. Refer to the [ASD Essential Eight Maturity Model](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model) and [Microsoft Defender Attack Surface Reduction rules reference](https://learn.microsoft.com/en-us/defender-endpoint/attack-surface-reduction-rules-reference)."
+      },
+      "name": "hardening-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-uah-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 86400000 },
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-uah-device-group",
+            "version": "KqlParameterItem/1.0",
+            "name": "DeviceGroup",
+            "label": "Device group",
+            "type": 2,
+            "isRequired": false,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "DeviceInfo\n| where TimeGenerated > ago(30d)\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| distinct GroupName\n| order by GroupName asc",
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*"
+            },
+            "queryType": 0,
+            "value": [
+              "value::all"
+            ]
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "hardening-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nlet kpiAsr = DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has 'Attack surface reduction' or ConfigurationId has 'asr'\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| join kind=inner devices on DeviceId\n| summarize Metric = 'ASR Rule Compliance % (TVM)', Value = round(100.0 * countif(IsCompliant == true) / max_of(count(), 1), 1);\nlet kpiDotNet = DeviceTvmSoftwareInventory\n| where TimeGenerated > ago(14d)\n| where SoftwareName has_any ('dotnet', '.net_framework', 'net_framework') and SoftwareVersion matches regex '^(2|3)\\.'\n| join kind=inner devices on DeviceId\n| summarize Metric = 'Devices with .NET Framework <= 3.5 (ML2)', Value = toreal(dcount(DeviceId));\nlet kpiIe11 = DeviceProcessEvents\n| where TimeGenerated > ago({TimeRange})\n| where FileName =~ 'iexplore.exe'\n| join kind=inner devices on DeviceId\n| summarize Metric = 'Internet Explorer 11 Executions (ML1)', Value = toreal(count());\nlet kpiPsV2 = DeviceProcessEvents\n| where TimeGenerated > ago({TimeRange})\n| where FileName in~ ('powershell.exe', 'powershell_ise.exe') and ProcessCommandLine matches regex '(?i)(^|\\s)-(v|ver|version)\\s+2(\\.0)?(\\s|$)'\n| join kind=inner devices on DeviceId\n| summarize Metric = 'PowerShell 2.0 Executions (ML2)', Value = toreal(count());\nunion kpiAsr, kpiDotNet, kpiIe11, kpiPsV2",
+        "size": 4,
+        "title": "User application hardening KPI summary",
+        "queryType": 0,
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12
+          },
+          "showBorder": true
+        }
+      },
+      "name": "hardening-kpi-tiles"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nlet tvmAsr = DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has 'Attack surface reduction' or ConfigurationId has 'asr'\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationSubcategory) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| join kind=inner devices on DeviceId\n| summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant == false) by ConfigurationId, GroupName\n| extend CoveragePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1);\ntvmAsr\n| order by CoveragePct asc, NonCompliantDevices desc",
+        "size": 0,
+        "title": "Attack Surface Reduction (ASR) rule compliance coverage by device group (E8-UAH-ML2-01)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "hardening-asr-coverage"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType startswith 'Asr'\n| join kind=inner devices on DeviceId\n| extend Mode = iff(ActionType endswith 'Blocked', 'Blocked', iff(ActionType endswith 'Audited', 'Audited', 'Other'))\n| summarize EventCount = count(), Devices = dcount(DeviceId) by ActionType, Mode, GroupName\n| order by EventCount desc\n| take 100",
+        "size": 0,
+        "title": "ASR runtime events: Blocked versus Audited telemetry",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "hardening-asr-runtime"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nDeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has_any ('Browser', 'Edge', 'Chrome', 'Internet Explorer', 'PowerShell', '.NET', 'Java')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant, ConfigurationCategory, ConfigurationSubcategory) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| join kind=inner devices on DeviceId\n| summarize CompliantDevices = dcountif(DeviceId, IsCompliant == true), NonCompliantDevices = dcountif(DeviceId, IsCompliant == false) by ConfigurationId, ConfigurationSubcategory, GroupName\n| extend CompliancePct = round(100.0 * CompliantDevices / max_of(CompliantDevices + NonCompliantDevices, 1), 1)\n| order by CompliancePct asc",
+        "size": 0,
+        "title": "Browser, Java, .NET Framework and PowerShell hardening posture (TVM)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "hardening-browser-dotnet-ps-posture"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let devices = DeviceInfo\n| where TimeGenerated > ago(30d)\n| summarize arg_max(TimeGenerated, MachineGroup) by DeviceId, DeviceName\n| extend GroupName = iff(isempty(MachineGroup), 'Unassigned', MachineGroup)\n| where ('*' in ({DeviceGroup}) or GroupName in ({DeviceGroup}));\nlet clmReg = DeviceRegistryEvents\n| where TimeGenerated > ago({TimeRange})\n| where RegistryValueName =~ '__PSLockdownPolicy' or RegistryKey has 'PowerShell\\\\ScriptBlockLogging'\n| join kind=inner devices on DeviceId\n| project TimeGenerated, DeviceName, GroupName, Signal = 'PowerShellPolicyRegistry', Detail = strcat(RegistryKey, ' -> ', RegistryValueName, '=', RegistryValueData);\nlet psLogging = DeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType == 'PowerShellCommand'\n| join kind=inner devices on DeviceId\n| summarize CommandsLogged = count(), LastSeen = max(TimeGenerated) by DeviceName, GroupName\n| project TimeGenerated = LastSeen, DeviceName, GroupName, Signal = 'PowerShellCommandTelemetry', Detail = strcat('Logged commands: ', tostring(CommandsLogged));\nunion clmReg, psLogging\n| order by TimeGenerated desc\n| take 100",
+        "size": 0,
+        "title": "PowerShell Constrained Language Mode (__PSLockdownPolicy) and logging coverage (E8-UAH-ML2-03)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "hardening-powershell-clm-logging"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
