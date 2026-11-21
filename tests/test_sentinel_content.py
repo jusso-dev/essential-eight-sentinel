@@ -146,11 +146,49 @@ def test_ism_mapping_when_present() -> None:
     with ism_path.open(encoding="utf-8", newline="") as handle:
         rows = list(csv.DictReader(handle))
     assert rows, "mappings/ism.csv must not be empty"
-    required_cols = {"ism_control_id", "ism_release", "strategy", "artefact_type", "artefact_path"}
+    required_cols = {
+        "ism_control_id",
+        "ism_release",
+        "strategy",
+        "e8_requirement_id",
+        "maturity_level",
+        "artefact_type",
+        "artefact_path",
+        "tile_or_rule_name",
+        "control_summary",
+    }
     assert required_cols.issubset(set(rows[0].keys()))
+    mapped_rules: set[str] = set()
+    mapped_hunts: set[str] = set()
+    mapped_tiles: set[tuple[str, str]] = set()
     for row in rows:
+        assert row["ism_control_id"].startswith("ISM-"), f"Invalid ISM control id: {row['ism_control_id']}"
+        assert row["ism_release"].strip(), "ism_release must be populated"
         target = REPO_ROOT / row["artefact_path"]
         assert target.exists(), f"ISM mapping references missing artefact: {row['artefact_path']}"
+        if row["artefact_type"] == "analytic_rule":
+            mapped_rules.add(row["artefact_path"])
+        elif row["artefact_type"] == "hunting_query":
+            mapped_hunts.add(row["artefact_path"])
+        elif row["artefact_type"] == "workbook_tile":
+            mapped_tiles.add((row["artefact_path"], row["tile_or_rule_name"]))
+
+    # Verify every analytics rule, hunting query and workbook tile is mapped
+    for path in _yaml_files(SOLUTION_DIR / "Analytic Rules"):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        assert rel in mapped_rules, f"Analytic rule missing from mappings/ism.csv: {rel}"
+    for path in _yaml_files(SOLUTION_DIR / "Hunting Queries"):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        assert rel in mapped_hunts, f"Hunting query missing from mappings/ism.csv: {rel}"
+    for path in _json_files(SOLUTION_DIR / "Workbooks"):
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        wb = json.loads(path.read_text(encoding="utf-8"))
+        for item in wb.get("items", []):
+            if item.get("type") == 3:
+                tile_name = item["name"]
+                assert (rel, tile_name) in mapped_tiles, (
+                    f"Workbook tile missing from mappings/ism.csv: {rel}::{tile_name}"
+                )
 
 
 def test_observable_requirements_have_hunting_queries() -> None:
