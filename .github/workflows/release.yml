@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package-and-upload:
+    name: Build and attach Content hub package artefact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Validate solution content and build release zip
+        run: |
+          pytest -v
+          VERSION="${GITHUB_REF_NAME#v}"
+          python scripts/build_solution_package.py --check --zip "dist/essential-eight-sentinel-${VERSION}.zip"
+          sha256sum "dist/essential-eight-sentinel-${VERSION}.zip" > "dist/essential-eight-sentinel-${VERSION}.zip.sha256"
+
+      - name: Upload package archive as workflow artefact
+        uses: actions/upload-artifact@v4
+        with:
+          name: essential-eight-sentinel-package
+          path: dist/*
