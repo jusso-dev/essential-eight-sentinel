@@ -1,0 +1,158 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## ASD Essential Eight Maturity Overview (Indicative Telemetry)\n\n> **Important caveat: Indicative telemetry only, not a formal assessment.**\n>\n> Scores in this workbook are **automated operational indicators** derived from Microsoft Defender XDR, Microsoft Entra ID, Microsoft Intune and Azure Backup telemetry. They **do not** constitute a formal ASD Essential Eight assessment or certification. Several requirements (such as macro code vetting, annual application control ruleset validation, initial privileged access approvals and offline disaster recovery exercises) cannot be verified by log telemetry alone and require manual evidence under the [ASD Essential Eight Assessment Process Guide](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-assessment-process-guide).\n>\n> Under the [ASD Essential Eight Maturity Model (November 2023)](https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model), overall maturity follows the weakest-link principle (the lowest maturity level achieved across all eight strategies).\n>\n> **Disclaimer:** This is an independent community project. It is not produced, endorsed or supported by the Australian Signals Directorate (ASD), the Australian Cyber Security Centre (ACSC) or Microsoft."
+      },
+      "name": "overview-caveat-header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "e8-ov-time-range",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 1209600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                { "durationMs": 604800000 },
+                { "durationMs": 1209600000 },
+                { "durationMs": 2592000000 }
+              ]
+            }
+          },
+          {
+            "id": "e8-ov-target-ml",
+            "version": "KqlParameterItem/1.0",
+            "name": "TargetML",
+            "label": "Target maturity level",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[\"ML1\", \"ML2\", \"ML3\"]",
+            "value": "ML2"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0
+      },
+      "name": "overview-parameters"
+    },
+    {
+      "type": 11,
+      "content": {
+        "version": "LinkItem/1.0",
+        "style": "tabs",
+        "links": [
+          {
+            "id": "drill-app-control",
+            "cellValue": "EssentialEight-ApplicationControl",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "1. Application control",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-patch",
+            "cellValue": "EssentialEight-PatchApplicationsAndOS",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "2 & 6. Patch applications and OS",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-macros",
+            "cellValue": "EssentialEight-OfficeMacros",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "3. Office macros",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-hardening",
+            "cellValue": "EssentialEight-UserApplicationHardening",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "4. User application hardening",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-admin",
+            "cellValue": "EssentialEight-RestrictAdminPrivileges",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "5. Restrict admin privileges",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-mfa",
+            "cellValue": "EssentialEight-MultiFactorAuthentication",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "7. Multi-factor authentication",
+            "style": "secondary"
+          },
+          {
+            "id": "drill-backups",
+            "cellValue": "EssentialEight-RegularBackups",
+            "linkTarget": "WorkbookTemplate",
+            "linkLabel": "8. Regular backups",
+            "style": "secondary"
+          },
+          {
+            "id": "link-asd-model",
+            "cellValue": "https://www.cyber.gov.au/resources-business-and-government/essential-cyber-security/essential-eight/essential-eight-maturity-model",
+            "linkTarget": "Url",
+            "linkLabel": "ASD Essential Eight Maturity Model",
+            "style": "link"
+          }
+        ]
+      },
+      "name": "overview-drilldown-links"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let acScore = DeviceEvents\n| where TimeGenerated > ago({TimeRange})\n| where ActionType startswith 'AppControl'\n| summarize Enforced = dcountif(DeviceId, ActionType has 'Blocked'), Audited = dcountif(DeviceId, ActionType has 'Audited'), Revoked = countif(ActionType has 'Revoked')\n| project Strategy = '1. Application control', IndicativeMLNum = case(Enforced > 0 and Audited == 0 and Revoked >= 0, 2, Enforced > 0, 1, 0), KeyMetric = strcat('Enforced devices: ', Enforced, ', Audit-only events: ', Audited), Observability = 'Partial (XML ruleset review required for ML3)', DrillDown = 'EssentialEight-ApplicationControl';\nlet kb = DeviceTvmSoftwareVulnerabilitiesKB | summarize arg_max(TimeGenerated, PublishedDate, IsExploitAvailable) by CveId;\nlet vulns = DeviceTvmSoftwareVulnerabilities\n| where TimeGenerated > ago(14d)\n| summarize arg_max(TimeGenerated, SoftwareName, VulnerabilitySeverityLevel, CveTags) by DeviceId, CveId\n| join kind=leftouter kb on CveId\n| extend AgeHours = datetime_diff('hour', now(), coalesce(PublishedDate, TimeGenerated))\n| extend IsExploited = (IsExploitAvailable == true or tostring(CveTags) has_any ('ZeroDay', 'ExploitInTheWild', 'CISA_KEV'))\n| extend IsOS = SoftwareName has_any ('windows', 'ubuntu', 'rhel', 'debian', 'centos', 'macos', 'linux_kernel', 'server');\nlet paScore = vulns\n| where not(IsOS)\n| summarize Overdue48h = countif((IsExploited or VulnerabilitySeverityLevel == 'Critical') and AgeHours > 48), Overdue14d = countif(AgeHours > 336), Overdue30d = countif(AgeHours > 720)\n| project Strategy = '2. Patch applications', IndicativeMLNum = case(Overdue48h == 0 and Overdue14d == 0, 3, Overdue48h == 0 and Overdue30d == 0, 2, Overdue48h == 0, 1, 0), KeyMetric = strcat('Overdue >48h: ', Overdue48h, ', >14d: ', Overdue14d, ', >30d: ', Overdue30d), Observability = 'Observable (Defender TVM; external SaaS needs manual check)', DrillDown = 'EssentialEight-PatchApplicationsAndOS';\nlet omScore = DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has_any ('Office', 'Macro') or ConfigurationId in ('scid-2501', 'scid-2502', 'scid-2503', 'scid-2504', 'scid-2505', 'scid-2016')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| summarize CompliancePct = round(100.0 * countif(IsCompliant == true) / max_of(count(), 1), 1)\n| project Strategy = '3. Configure Microsoft Office macro settings', IndicativeMLNum = case(CompliancePct >= 99.0, 2, CompliancePct >= 90.0, 1, 0), KeyMetric = strcat('TVM policy compliance: ', CompliancePct, '%'), Observability = 'Partial (code vetting for ML3 is manual)', DrillDown = 'EssentialEight-OfficeMacros';\nlet uahScore = DeviceTvmSecureConfigurationAssessment\n| where TimeGenerated > ago(14d)\n| where ConfigurationSubcategory has_any ('Attack surface reduction', 'Browser', 'PowerShell', '.NET')\n| summarize arg_max(TimeGenerated, IsApplicable, IsCompliant) by DeviceId, ConfigurationId\n| where IsApplicable == true\n| summarize CompliancePct = round(100.0 * countif(IsCompliant == true) / max_of(count(), 1), 1)\n| project Strategy = '4. User application hardening', IndicativeMLNum = case(CompliancePct >= 98.0, 3, CompliancePct >= 90.0, 2, CompliancePct >= 75.0, 1, 0), KeyMetric = strcat('Hardening & ASR compliance: ', CompliancePct, '%'), Observability = 'Observable (Defender TVM and DeviceEvents)', DrillDown = 'EssentialEight-UserApplicationHardening';\nlet privUsers = IdentityInfo | where TimeGenerated > ago(30d) | summarize arg_max(TimeGenerated, AssignedRoles) by AccountUPN | where array_length(AssignedRoles) > 0 | project AccountUPN = tolower(AccountUPN), AssignedRolesStr = tostring(AssignedRoles);\nlet rapEmail = SigninLogs | where TimeGenerated > ago({TimeRange}) | where ResultType == '0' | extend UserLower = tolower(UserPrincipalName) | join kind=inner privUsers on $left.UserLower == $right.AccountUPN | where AppDisplayName has_any ('Exchange Online', 'Outlook', 'Teams', 'SharePoint') | summarize EmailPrivUsers = dcount(UserLower);\nlet rapStanding = privUsers | where AssignedRolesStr has 'Global Administrator' | summarize StandingGA = dcount(AccountUPN);\nlet rapScore = rapEmail | extend k = 1 | join kind=inner (rapStanding | extend k = 1) on k | project Strategy = '5. Restrict administrative privileges', IndicativeMLNum = case(EmailPrivUsers == 0 and StandingGA <= 2, 2, EmailPrivUsers == 0, 1, 0), KeyMetric = strcat('Priv email/web users: ', EmailPrivUsers, ', Standing GA: ', StandingGA), Observability = 'Partial (access approvals and PAW boundaries need manual check)', DrillDown = 'EssentialEight-RestrictAdminPrivileges';\nlet posScore = vulns\n| where IsOS\n| summarize Overdue48h = countif((IsExploited or VulnerabilitySeverityLevel == 'Critical') and AgeHours > 48), Overdue14d = countif(AgeHours > 336), Overdue30d = countif(AgeHours > 720)\n| project Strategy = '6. Patch operating systems', IndicativeMLNum = case(Overdue48h == 0 and Overdue14d == 0, 3, Overdue48h == 0 and Overdue30d == 0, 2, Overdue48h == 0, 1, 0), KeyMetric = strcat('OS overdue >48h: ', Overdue48h, ', >14d: ', Overdue14d, ', >30d: ', Overdue30d), Observability = 'Observable (Defender TVM; hypervisor/firmware needs manual check)', DrillDown = 'EssentialEight-PatchApplicationsAndOS';\nlet mfaScore = SigninLogs\n| where TimeGenerated > ago({TimeRange})\n| where ResultType == '0'\n| extend AuthStr = tostring(AuthenticationDetails)\n| extend IsPR = AuthStr has_any ('FIDO2', 'Windows Hello for Business', 'Certificate-based authentication', 'Passkey')\n| extend IsMfa = (AuthenticationRequirement == 'multiFactorAuthentication' or IsPR)\n| extend IsLegacy = ClientAppUsed in~ ('IMAP4', 'POP3', 'SMTP', 'Exchange ActiveSync', 'Exchange Web Services', 'Autodiscover', 'MAPI Over HTTP', 'Other clients')\n| summarize MfaPct = round(100.0 * countif(IsMfa) / max_of(count(), 1), 1), PrPct = round(100.0 * countif(IsPR) / max_of(count(), 1), 1), LegacyCount = countif(IsLegacy)\n| project Strategy = '7. Multi-factor authentication', IndicativeMLNum = case(LegacyCount == 0 and PrPct >= 98.0, 3, LegacyCount == 0 and PrPct >= 80.0, 2, LegacyCount == 0 and MfaPct >= 95.0, 1, 0), KeyMetric = strcat('MFA: ', MfaPct, '%, Phishing-resistant: ', PrPct, '%, Legacy auth: ', LegacyCount), Observability = 'Observable (Entra SigninLogs; non-federated SaaS needs manual check)', DrillDown = 'EssentialEight-MultiFactorAuthentication';\nlet rbScore = union isfuzzy=true (AddonAzureBackupJobs | where TimeGenerated > ago({TimeRange}) | summarize TotalJobs = count(), FailedJobs = countif(JobStatus == 'Failed'), RestoreTests = countif(JobOperation == 'Restore' and JobStatus == 'Completed')), (datatable(TotalJobs:long, FailedJobs:long, RestoreTests:long)[0, 0, 0])\n| summarize TotalJobs = max(TotalJobs), FailedJobs = max(FailedJobs), RestoreTests = max(RestoreTests)\n| project Strategy = '8. Regular backups', IndicativeMLNum = case(TotalJobs > 0 and FailedJobs == 0 and RestoreTests > 0, 1, 0), KeyMetric = strcat('Azure Backup jobs: ', TotalJobs, ', Failed: ', FailedJobs, ', Restores: ', RestoreTests), Observability = 'Partial (immutability, M365 and DR tests require manual evidence)', DrillDown = 'EssentialEight-RegularBackups';\nunion acScore, paScore, omScore, uahScore, rapScore, posScore, mfaScore, rbScore\n| extend IndicativeMaturity = strcat('Indicative ML', tostring(IndicativeMLNum))\n| extend TargetMet = iff(IndicativeMLNum >= toint(replace_string('{TargetML}', 'ML', '')), 'On track (indicative)', 'Below target (indicative)')\n| project Strategy, IndicativeMaturity, TargetMet, KeyMetric, Observability, DrillDown\n| order by Strategy asc",
+        "size": 0,
+        "title": "Per-strategy indicative maturity scorecard (ML0 to ML3)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "overview-scorecard-table"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "SecurityAlert\n| where TimeGenerated > ago({TimeRange})\n| where AlertName startswith 'Essential Eight'\n| summarize Alerts = count(), HighSeverity = countif(AlertSeverity == 'High'), LastTriggered = max(TimeGenerated) by AlertName, AlertSeverity\n| order by HighSeverity desc, Alerts desc\n| take 50",
+        "size": 0,
+        "title": "Recent Essential Eight control regression alerts",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "overview-regression-alerts"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let expectedTables = datatable(TableName:string, SourceProduct:string)[\n    'DeviceTvmSoftwareVulnerabilities', 'Defender Vulnerability Management',\n    'DeviceTvmSoftwareVulnerabilitiesKB', 'Defender Vulnerability Management',\n    'DeviceTvmSoftwareInventory', 'Defender Vulnerability Management',\n    'DeviceTvmSecureConfigurationAssessment', 'Defender Vulnerability Management',\n    'DeviceInfo', 'Defender for Endpoint',\n    'DeviceEvents', 'Defender for Endpoint',\n    'DeviceProcessEvents', 'Defender for Endpoint',\n    'DeviceRegistryEvents', 'Defender for Endpoint',\n    'SigninLogs', 'Microsoft Entra ID',\n    'AuditLogs', 'Microsoft Entra ID',\n    'IdentityInfo', 'Microsoft Sentinel UEBA',\n    'IntuneDevices', 'Microsoft Intune',\n    'IntuneDeviceComplianceOrg', 'Microsoft Intune',\n    'AddonAzureBackupJobs', 'Azure Backup'\n];\nlet active = Usage\n| where TimeGenerated > ago(24h)\n| summarize VolumeMB = round(sum(Quantity), 2), LastIngested = max(TimeGenerated) by TableName = DataType;\nexpectedTables\n| join kind=leftouter active on TableName\n| extend Status = iff(isnotnull(LastIngested), 'Active (24h)', 'No Data (Check Connector)')\n| project TableName, SourceProduct, Status, VolumeMB = coalesce(VolumeMB, 0.0), LastIngested\n| order by Status asc, TableName asc",
+        "size": 0,
+        "title": "Required Sentinel data connector telemetry health (last 24 hours)",
+        "queryType": 0,
+        "visualization": "table"
+      },
+      "name": "overview-connector-health"
+    }
+  ],
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
+}
