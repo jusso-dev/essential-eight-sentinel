@@ -1,0 +1,72 @@
+{
+  "generated_for": "Synthetic fixture data for Patch Applications and Patch OS workbook validation",
+  "tenant_id": "00000000-0000-0000-0000-000000000000",
+  "device_groups": [
+    "Corporate-Workstations",
+    "Internet-Facing-DMZ",
+    "Core-Servers",
+    "PAW-Admin"
+  ],
+  "summary_kpis": {
+    "overdue_critical_exploited_48h": 7,
+    "overdue_core_apps_14d": 19,
+    "overdue_other_apps_ml2_30d": 12,
+    "overdue_os_ml2": 14,
+    "unsupported_software_instances": 6,
+    "unsupported_os_devices": 3
+  },
+  "age_distribution_by_group": [
+    { "group": "Corporate-Workstations", "0_48h": 42, "2_14d": 28, "15_30d": 11, "gt_30d": 8 },
+    { "group": "Internet-Facing-DMZ", "0_48h": 9, "2_14d": 4, "15_30d": 2, "gt_30d": 1 },
+    { "group": "Core-Servers", "0_48h": 18, "2_14d": 15, "15_30d": 6, "gt_30d": 4 },
+    { "group": "PAW-Admin", "0_48h": 3, "2_14d": 0, "15_30d": 0, "gt_30d": 0 }
+  ],
+  "exploited_vulnerabilities": [
+    {
+      "cve_id": "CVE-2026-0101",
+      "software": "Google Chrome",
+      "severity": "Critical",
+      "tag": "CISA_KEV",
+      "age_hours": 76,
+      "affected_devices": 4,
+      "device_group": "Corporate-Workstations",
+      "sla_status": "Breached (>48h)"
+    },
+    {
+      "cve_id": "CVE-2026-0142",
+      "software": "Windows Server 2022",
+      "severity": "Critical",
+      "tag": "ExploitInTheWild",
+      "age_hours": 61,
+      "affected_devices": 2,
+      "device_group": "Internet-Facing-DMZ",
+      "sla_status": "Breached (>48h)"
+    },
+    {
+      "cve_id": "CVE-2026-0198",
+      "software": "Adobe Acrobat Reader",
+      "severity": "High",
+      "tag": "CISA_KEV",
+      "age_hours": 54,
+      "affected_devices": 1,
+      "device_group": "Corporate-Workstations",
+      "sla_status": "Breached (>48h)"
+    },
+    {
+      "cve_id": "CVE-2026-0215",
+      "software": "Microsoft Edge",
+      "severity": "High",
+      "tag": "ExploitInTheWild",
+      "age_hours": 22,
+      "affected_devices": 9,
+      "device_group": "Corporate-Workstations",
+      "sla_status": "Within 48h"
+    }
+  ],
+  "unsupported_assets": [
+    { "type": "OS", "name": "Windows Server 2012 R2", "group": "Core-Servers", "devices": 2 },
+    { "type": "OS", "name": "Windows 10 21H2 (19044)", "group": "Corporate-Workstations", "devices": 1 },
+    { "type": "Software", "name": "Java SE 8u202", "group": "Core-Servers", "devices": 4 },
+    { "type": "Software", "name": "Adobe Reader XI", "group": "Corporate-Workstations", "devices": 2 }
+  ]
+}
